@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="GlobalAuth.Api/GlobalAuth.Api.csproj" />
+  <Project Path="GlobalAuth.Client/GlobalAuth.Client.csproj" />
+</Solution>
