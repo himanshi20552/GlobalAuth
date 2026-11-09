@@ -1,5 +1,4 @@
-﻿
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using GlobalAuth.Client.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
@@ -101,6 +100,12 @@ namespace GlobalAuth.Client.DependencyInjection
 										context.Fail($"Invalid or missing {claimType} claim.");
 										return Task.CompletedTask;
 									}
+								}
+								var sessionId = principal.FindFirst("sid")!.Value;
+								if (!Guid.TryParse(sessionId, out _))
+								{
+									context.Fail("Invalid Session ID");
+									return Task.CompletedTask;
 								}
 								var principalType = principal.FindFirst("principal_type")!.Value;
 								if(!string.Equals(principalType,"USER",StringComparison.OrdinalIgnoreCase)&&
