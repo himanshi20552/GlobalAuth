@@ -82,6 +82,17 @@ namespace GlobalAuth.Client.DependencyInjection
 								NameClaimType = "sub",
 								RoleClaimType = "role"
 							};
+						jwtOptions.Events = new JwtBearerEvents
+						{
+							OnTokenValidated = context =>
+							{
+								bool isAccessToken = context.Principal?.HasClaim("token_type",
+									"access") == true;
+								if (!isAccessToken)
+									context.Fail("Invalid token type.");
+								return Task.CompletedTask;
+							}
+						};
 					});
 				services.AddAuthorization();
 				services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
