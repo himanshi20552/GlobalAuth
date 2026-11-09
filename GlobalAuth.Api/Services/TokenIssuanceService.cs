@@ -77,7 +77,7 @@ namespace GlobalAuth.Api.Services
 				{
 					Jti = accessToken.Jti,
 					SessionID = sessionId,
-					IssuanceType = "Initial",
+					IssuanceType = "INITIAL",
 					IssuedAtUtc = DateTime.UtcNow,
 					ExpiresAtUtc = accessToken.ExpiresAtUtc,
 					IPAddress = request.IpAddress,

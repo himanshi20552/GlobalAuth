@@ -24,6 +24,9 @@ builder.Services.AddScoped<ClientPermissionRepository>();
 builder.Services.AddScoped<AuthRefreshTokenRepository>();
 builder.Services.AddSingleton<ISigningKeyProvider, RsaFileSigningKeyProvider>();
 builder.Services.AddScoped<AuthSessionRepository>();
+builder.Services.AddScoped<ApplicationRepository>();
+builder.Services.AddScoped<ApplicationService>();
+builder.Services.AddScoped<ClientManagementService>();
 var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

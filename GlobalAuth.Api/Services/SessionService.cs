@@ -12,8 +12,9 @@ namespace GlobalAuth.Api.Services
 			_authSessionRepository = authSessionRepository;
 		}
 		public async Task<Guid> CreateUserSessionAsync(SessionCreationRequest request, CancellationToken cancellationToken = default)
-		{ 
-			if(string.IsNullOrWhiteSpace(request.SubjectId))
+		{
+			ArgumentNullException.ThrowIfNull(request);
+			if (string.IsNullOrWhiteSpace(request.SubjectId))
 			{
 				throw new ArgumentException("User ID is required.");
 			}
@@ -61,6 +62,7 @@ namespace GlobalAuth.Api.Services
 		}
 		public async Task<Guid> CreateClientSessionAsync(SessionCreationRequest request, CancellationToken cancellationToken = default)
 		{
+			ArgumentNullException.ThrowIfNull(request);
 			if (string.IsNullOrWhiteSpace(request.SubjectId))
 			{
 				throw new ArgumentException("Client ID is required.");

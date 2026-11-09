@@ -78,7 +78,7 @@ namespace GlobalAuth.Api.Services
 
 			if (!context.UsedAtUtc.HasValue)
 			{
-				if (context.TokenExpiresAtUtc <= nowUtc || context.SessionRevokedAtUtc.HasValue || context.SessionExpiresAtUtc <= nowUtc)
+				if (context.RevokedAtUtc.HasValue||context.TokenExpiresAtUtc <= nowUtc || context.SessionRevokedAtUtc.HasValue || context.SessionExpiresAtUtc <= nowUtc)
 				{
 					throw new UnauthorizedAccessException("Refresh token or session has expired or is no longer active.");
 				}
