@@ -107,7 +107,7 @@ namespace GlobalAuth.Api.Services
 			{
 				var tokenRequest = new TokenGenerationRequest
 				{
-					PrincipalType = context.SubjectType == "USER" ? "User" : "Client",
+					PrincipalType = context.SubjectType,
 					SubjectId = context.SubjectID,
 					ApplicationId = context.ApplicationID,
 					SessionId = context.SessionID,

@@ -1,18 +1,26 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 using GlobalAuth.Api.Repositories;
+using GlobalAuth.Api.Contracts;
+using GlobalAuth.Api.Constants;
+
 namespace GlobalAuth.Api.Services
 {
     public sealed class ClientAuthenticationService
     {
         private readonly ClientCredentialRepository _repository;
 		private readonly ClientPermissionRepository _permissionRepository;
-        public ClientAuthenticationService(ClientCredentialRepository repository, ClientPermissionRepository permissionRepository)
+		private readonly ITokenIssuanceService _tokenIssuanceService;
+        public ClientAuthenticationService(ClientCredentialRepository repository, ClientPermissionRepository permissionRepository,
+			ITokenIssuanceService tokenIssuanceService)
 		{
 			_repository = repository;
 			_permissionRepository = permissionRepository;
+			_tokenIssuanceService = tokenIssuanceService;
 		}
-		public async Task<IReadOnlyList<string>?> AuthenticateAndGetPermissionsAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default)
+		public async Task<RefreshTokenResponse?> AuthenticateAndIssueTokensAsync(string clientId, string clientSecret, 
+			string? deviceId=null,string? IpAddress=null,string? userAgent=null,
+			CancellationToken cancellationToken = default)
 		{ 
 			if(string.IsNullOrWhiteSpace(clientId)|| string.IsNullOrWhiteSpace(clientSecret))
 			{
@@ -30,7 +38,20 @@ namespace GlobalAuth.Api.Services
 			{
 				return null;
 			}
-			return await _permissionRepository.GetActivePermissionsByClientAsync(clientId, cancellationToken);
+			var permissions= await _permissionRepository.GetActivePermissionsByClientAsync(clientId, cancellationToken);
+
+			var issuanceRequest = new TokenIssuanceRequest
+			{
+				PrincipalType = GlobalAuthPrincipalTypes.Client,
+				SubjectId = clientId,
+				ApplicationId = null,
+				Roles = [],
+				Permissions = permissions.ToList(),
+				DeviceId = deviceId,
+				IpAddress = IpAddress,
+				UserAgent = userAgent
+			};
+			return await _tokenIssuanceService.IssueAsync(issuanceRequest, cancellationToken);
 		}
 	}
 }

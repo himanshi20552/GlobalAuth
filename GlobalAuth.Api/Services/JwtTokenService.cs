@@ -67,8 +67,9 @@ public sealed class JwtTokenService : ITokenService
 		};
 		var clientId = request.PrincipalType switch
 		{
-			"user" => request.ApplicationId!,
-			"client" => request.SubjectId,
+			GlobalAuthPrincipalTypes.User => request.ApplicationId?? throw new ArgumentException(
+			"Application ID is required for user tokens."),
+			GlobalAuthPrincipalTypes.Client => request.SubjectId,
 			_ => throw new InvalidOperationException("Invalid principal type.")
 		};
 
