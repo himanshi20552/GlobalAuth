@@ -49,10 +49,13 @@ public sealed class JwtTokenService : ITokenService
 			throw new ArgumentException("Invalid principal type.");
 		if(isClient && request.Roles.Count > 0)
 			throw new ArgumentException("Client tokens cannot contain user roles.");
+		
 		var now = DateTime.UtcNow;
-
-		var expiresAt = now.AddMinutes(
+		if (request.SessionExpiresAtUtc <= now)
+			throw new ArgumentException("Cannot generate acess token for expired session");
+		var configuredExpiry= now.AddMinutes(
 			_jwtOptions.AccessTokenLifetimeMinutes);
+		var expiresAt = configuredExpiry <= request.SessionExpiresAtUtc ? configuredExpiry : request.SessionExpiresAtUtc;
 		var jti=Guid.NewGuid().ToString();
 
 		var claims = new List<Claim>

@@ -112,7 +112,8 @@ namespace GlobalAuth.Api.Services
 					ApplicationId = context.ApplicationID,
 					SessionId = context.SessionID,
 					Roles = authorization!.Roles,
-					Permissions = authorization.Permissions
+					Permissions = authorization.Permissions,
+					SessionExpiresAtUtc=context.SessionExpiresAtUtc
 				};
 				accessToken = _tokenService.GenerateAccessToken(tokenRequest);
 			}

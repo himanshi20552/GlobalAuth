@@ -59,7 +59,8 @@ namespace GlobalAuth.Api.Services
 					ApplicationId = request.ApplicationId,
 					Roles = request.Roles,
 					Permissions = request.Permissions,
-					SessionId = sessionId
+					SessionId = sessionId,
+					SessionExpiresAtUtc=sessionExpiresAtUtc
 				};
 				var accessToken = _tokenService.GenerateAccessToken(tokenRequest);
 				var refreshToken = _refreshTokenService.Generate();

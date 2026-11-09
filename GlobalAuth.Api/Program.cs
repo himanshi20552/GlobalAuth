@@ -17,6 +17,7 @@ builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<ClientCredentialRepository>();
 builder.Services.AddScoped<TokenRefreshService>();
 builder.Services.AddSingleton<RefreshTokenService>();
+builder.Services.AddScoped<AuthTokenIssuanceAuditRepository>();
 builder.Services.AddScoped<ITokenIssuanceService, TokenIssuanceService>();
 builder.Services.AddScoped<ClientAuthenticationService>();
 builder.Services.AddScoped<ClientPermissionRepository>();
