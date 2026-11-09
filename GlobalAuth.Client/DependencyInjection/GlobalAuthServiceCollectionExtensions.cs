@@ -86,10 +86,38 @@ namespace GlobalAuth.Client.DependencyInjection
 						{
 							OnTokenValidated = context =>
 							{
-								bool isAccessToken = context.Principal?.HasClaim("token_type",
-									"access") == true;
-								if (!isAccessToken)
+								var principal = context.Principal;
+								if (principal == null)
+								{
+									context.Fail("Missing token principal");
+									return Task.CompletedTask;
+								}
+								string[] requiredClaims =
+								{ "sub","jti","sid","principal_type","token_type" };
+								foreach (var claimType in requiredClaims) {
+									var claims = principal.FindAll(claimType).ToArray();
+									if (claims.Length != 1 || string.IsNullOrWhiteSpace(claims[0].Value))
+									{
+										context.Fail($"Invalid or missing {claimType} claim.");
+										return Task.CompletedTask;
+									}
+								}
+								var principalType = principal.FindFirst("principal_type")!.Value;
+								if(!string.Equals(principalType,"USER",StringComparison.OrdinalIgnoreCase)&&
+								!string.Equals(principalType, "CLIENT",StringComparison.OrdinalIgnoreCase))
+								{
+									context.Fail("Invalid principal type.");
+									return Task.CompletedTask;
+								}
+
+								var tokenType = principal.FindFirst("token_type")!.Value;
+
+								if (tokenType != "access")
+								{
 									context.Fail("Invalid token type.");
+									return Task.CompletedTask;
+								}
+
 								return Task.CompletedTask;
 							}
 						};
