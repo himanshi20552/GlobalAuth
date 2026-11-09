@@ -1,0 +1,35 @@
+﻿using GlobalAuth.Api.Contracts;
+using GlobalAuth.Api.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+namespace GlobalAuth.Api.Controllers
+{
+	[ApiController]
+	[Route("api/auth/client")]
+	public sealed class ClientAuthenticationController : ControllerBase
+	{
+		private readonly ClientAuthenticationService _clientAuthenticationService;
+		public ClientAuthenticationController(ClientAuthenticationService clientAuthenticationService)
+		{
+			_clientAuthenticationService = clientAuthenticationService;
+		}
+		[AllowAnonymous]
+		[HttpPost("token")]
+		public async Task<IActionResult> GenerateToken([FromBody] ClientTokenRequest request, CancellationToken cancellationToken) {
+			var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+			var userAgent = Request.Headers.UserAgent.ToString();
+			var result = await _clientAuthenticationService.AuthenticateAndIssueTokensAsync(
+				request.ClientId, request.ClientSecret, deviceId: null, IpAddress: ipAddress,
+				userAgent: userAgent, cancellationToken: cancellationToken);
+			if (result is null)
+			{
+				return Unauthorized(new
+				{
+					message = "Invalid Client Credentials"
+				});
+			}
+			return Ok(result);
+		}
+
+	}
+}

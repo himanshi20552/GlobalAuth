@@ -12,12 +12,12 @@ namespace GlobalAuth.Api.Services
 		private readonly RefreshTokenService _refreshTokenService;
 		private readonly ITokenService _tokenService;
 		private readonly ClientPermissionRepository _clientPermissionRepository;
-		private readonly IUserAuthorizationProvider _userAuthorizationProvider;
+		private readonly IUserAuthorizationProvider? _userAuthorizationProvider;
 		private readonly RefreshTokenOptions _refreshTokenOptions;
 		private readonly SessionService _sessionService;
 		public TokenRefreshService(AuthRefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, ITokenService tokenService,
 	 ClientPermissionRepository clientPermissionRepository, SessionService sessionService,
-	 IUserAuthorizationProvider userAuthorizationProvider, IOptions<RefreshTokenOptions> refreshTokenOptions)
+	 IUserAuthorizationProvider? userAuthorizationProvider, IOptions<RefreshTokenOptions> refreshTokenOptions)
 		{
 			_refreshTokenRepository = refreshTokenRepository;
 			_refreshTokenService = refreshTokenService;
@@ -42,7 +42,8 @@ namespace GlobalAuth.Api.Services
 			{
 				if (string.IsNullOrWhiteSpace(context.ApplicationID))
 					throw new InvalidOperationException("User session has no ApplicationID.");
-
+				if(_userAuthorizationProvider is null)
+               throw new InvalidOperationException("User authorization provider is not configured.");
 				return await _userAuthorizationProvider.GetCurrentAuthorizationAsync(
 					context.SubjectID,
 					context.ApplicationID,
