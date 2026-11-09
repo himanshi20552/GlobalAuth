@@ -37,7 +37,8 @@ namespace GlobalAuth.Api.Repositories
             return rowsAffected == 1;
         }
         public async Task<RefreshTokenRotationResult> RotationAsync(byte[] presentedTokenHash, Guid newRefreshTokenId,
-            byte[] newTokenHash, DateTime newExpiresAtUtc, CancellationToken cancellationToken = default)
+            byte[] newTokenHash, DateTime newExpiresAtUtc, string? jti,DateTime? accessTokenExpiresAtUtc,
+            string? ipAddress, string? userAgent, string? deviceId,CancellationToken cancellationToken = default)
         {
             await using var conn = _connFactory.CreateConnection();
             await conn.OpenAsync(cancellationToken);
@@ -47,7 +48,12 @@ namespace GlobalAuth.Api.Repositories
                     PresentedTokenHash = presentedTokenHash,
                     NewRefreshTokenID = newRefreshTokenId,
                     NewTokenHash = newTokenHash,
-                    NewExpiresAtUtc = newExpiresAtUtc
+                    NewExpiresAtUtc = newExpiresAtUtc,
+                    Jti=jti,
+                    AccessTokenExpiresAtUtc=accessTokenExpiresAtUtc,
+                    IPAddress=ipAddress,
+                    UserAgent=userAgent,
+                    DeviceID=deviceId
                 }, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken);
             var result = await conn.QuerySingleAsync<RefreshTokenRotationResult>(command);
             return result;

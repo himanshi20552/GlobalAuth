@@ -63,7 +63,8 @@ namespace GlobalAuth.Api.Services
 
 			throw new InvalidOperationException("Invalid session principal type.");
 		}
-		public async Task<RefreshTokenResponse> RefreshAsync(string presentedRefreshToken, CancellationToken cancellationToken = default)
+		public async Task<RefreshTokenResponse> RefreshAsync(string presentedRefreshToken,
+			string? ipAddress=null, string? userAgent=null, string? deviceId=null,CancellationToken cancellationToken = default)
 		{
 			if (string.IsNullOrWhiteSpace(presentedRefreshToken))
 				throw new ArgumentException("Refresh token is required.");
@@ -119,7 +120,8 @@ namespace GlobalAuth.Api.Services
 			}
 			var presentedTokenHash = _refreshTokenService.ComputeHash(presentedRefreshToken);
 			var rotationResult = await _refreshTokenRepository.RotationAsync(presentedTokenHash,
-				newRefreshTokenId, newRefreshToken.TokenHash, newRefreshTokenExpiresAtUtc, cancellationToken);
+				newRefreshTokenId, newRefreshToken.TokenHash, newRefreshTokenExpiresAtUtc,
+				accessToken?.Jti,accessToken?.ExpiresAtUtc,ipAddress,userAgent,deviceId,cancellationToken);
 
 			switch (rotationResult.ResultCode)
 			{

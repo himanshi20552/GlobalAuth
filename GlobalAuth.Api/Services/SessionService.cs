@@ -1,7 +1,5 @@
-﻿using GlobalAuth.Api.Configuration;
-using GlobalAuth.Api.Contracts;
+﻿using GlobalAuth.Api.Contracts;
 using GlobalAuth.Api.Repositories;
-using Microsoft.Extensions.Options;
 using GlobalAuth.Api.Models;
 
 namespace GlobalAuth.Api.Services
@@ -41,10 +39,7 @@ namespace GlobalAuth.Api.Services
 				ExpiresAtUtc = request.ExpiresAtUtc
 			};
 			var result=await _authSessionRepository.CreateUserSessionAsync(session, cancellationToken);
-			if(result== SessionCreationResult.SessionLimitReached)
-			{
-				throw new InvalidOperationException("Maximum active sessions reached.");
-			}
+			
 			switch (result)
 			{
 				case SessionCreationResult.Created:
@@ -70,7 +65,7 @@ namespace GlobalAuth.Api.Services
 			{
 				throw new ArgumentException("Client ID is required.");
 			}
-			if (!string.IsNullOrWhiteSpace(request.ApplicationId))
+			if (request.ApplicationId != null)
 			{
 				throw new ArgumentException("Application ID is not required for client sessions.");
 			}
@@ -108,7 +103,51 @@ namespace GlobalAuth.Api.Services
 		}
 		public async Task RevokeSessionAsync(Guid sessionId,string reason,CancellationToken cancellationToken = default)
 		{
+			if (sessionId == Guid.Empty)
+				throw new ArgumentException("Session ID is required");
+			if (string.IsNullOrWhiteSpace(reason))
+				throw new ArgumentException("Revocation reason is needed.");
 			await _authSessionRepository.RevokeAsync(sessionId,reason,cancellationToken);
+		}
+		public async Task<IReadOnlyList<AuthSession>> GetActiveSessionsAsync(string subjectType,string subjectId,
+			string? applicationId, CancellationToken cancellationToken = default)
+		{
+			if (string.IsNullOrWhiteSpace(subjectId))
+				throw new ArgumentException("Subject ID is required.");
+
+			if (subjectType == "USER" && string.IsNullOrWhiteSpace(applicationId))
+				throw new ArgumentException("Application ID is required for user sessions.");
+
+			if (subjectType == "CLIENT" && applicationId!=null)
+				throw new ArgumentException("Application ID must be null for client sessions.");
+
+			if (subjectType != "USER" && subjectType != "CLIENT")
+				throw new ArgumentException("Invalid subject type.");
+
+			return await _authSessionRepository.GetActiveBySubjectAsync(subjectType,subjectId,
+				applicationId,cancellationToken);
+		}
+
+		public async Task RevokeAllActiveSessionsAsync(string subjectType,string subjectId,string? applicationId,
+			string reason,CancellationToken cancellationToken = default)
+		{
+			if (string.IsNullOrWhiteSpace(subjectId))
+				throw new ArgumentException("Subject ID is required.");
+
+			if (string.IsNullOrWhiteSpace(reason))
+				throw new ArgumentException("Revocation reason is required.");
+
+			if (subjectType == "USER" && string.IsNullOrWhiteSpace(applicationId))
+				throw new ArgumentException("Application ID is required for user sessions.");
+
+			if (subjectType == "CLIENT" && applicationId!=null)
+				throw new ArgumentException("Application ID must be null for client sessions.");
+
+			if (subjectType != "USER" && subjectType != "CLIENT")
+				throw new ArgumentException("Invalid subject type.");
+
+			await _authSessionRepository.RevokeAllActiveAsync(subjectType,subjectId,applicationId,
+				reason,cancellationToken);
 		}
 	}
 }

@@ -1,5 +1,6 @@
 ﻿using GlobalAuth.Api.Configuration;
 using GlobalAuth.Api.Repositories;
+using GlobalAuth.Api.Models;
 using GlobalAuth.Api.Contracts;
 
 using Microsoft.Extensions.Options;
@@ -14,10 +15,10 @@ namespace GlobalAuth.Api.Services
 		private readonly RefreshTokenService _refreshTokenService;
 		private readonly AuthRefreshTokenRepository _refreshTokenRepository;
 		private readonly RefreshTokenOptions _refreshTokenOptions;
-
+		private readonly AuthTokenIssuanceAuditRepository _auditRepo;
 		public TokenIssuanceService(SessionService sessionService, ITokenService tokenService,
 		RefreshTokenService refreshTokenService, AuthRefreshTokenRepository refreshTokenRepository,
-		IOptions<RefreshTokenOptions> refreshTokenOptions)
+		IOptions<RefreshTokenOptions> refreshTokenOptions, AuthTokenIssuanceAuditRepository auditRepo)
 		{
 			_sessionService = sessionService;
 			_tokenService = tokenService;
@@ -26,6 +27,7 @@ namespace GlobalAuth.Api.Services
 			_refreshTokenOptions = refreshTokenOptions.Value;
 			if (_refreshTokenOptions.LifetimeDays <= 0)
 				throw new InvalidOperationException("Token Lifetime must be greater than 0");
+			_auditRepo = auditRepo;
 		}
 		public async Task<RefreshTokenResponse> IssueAsync(TokenIssuanceRequest request, CancellationToken cancellationToken = default)
 		{
@@ -71,6 +73,17 @@ namespace GlobalAuth.Api.Services
 					familyId, refreshToken.TokenHash, refreshTokenExpiresAtUtc, cancellationToken);
 				if (!stored)
 					throw new InvalidOperationException("Refresh Token couldnt be stored. Session may no longer be active");
+				await _auditRepo.CreateAsync(new AuthTokenIssuanceAudit
+				{
+					Jti = accessToken.Jti,
+					SessionID = sessionId,
+					IssuanceType = "Initial",
+					IssuedAtUtc = DateTime.UtcNow,
+					ExpiresAtUtc = accessToken.ExpiresAtUtc,
+					IPAddress = request.IpAddress,
+					UserAgent = request.UserAgent,
+					DeviceID = request.DeviceId
+				}, cancellationToken);
 				return new RefreshTokenResponse
 				{
 					AccessToken = accessToken.AccessToken,
