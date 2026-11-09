@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
+﻿
 using GlobalAuth.Api.Configuration;
 using GlobalAuth.Api.Contracts;
 using GlobalAuth.Api.Models;
@@ -26,6 +25,8 @@ namespace GlobalAuth.Api.Services
 			_clientPermissionRepository = clientPermissionRepository;
 			_userAuthorizationProvider = userAuthorizationProvider;
 			_refreshTokenOptions = refreshTokenOptions.Value;
+			if (_refreshTokenOptions.LifetimeDays <= 0)
+				throw new InvalidOperationException("Refresh token lifetime must be greater than zero.");
 			_sessionService = sessionService;
 		}
 		public async Task<RefreshTokenContext?> GetRefreshContextAsync(string presentedRefreshToken, CancellationToken cancellationToken = default)

@@ -10,6 +10,7 @@ namespace GlobalAuth.Client.Authorization
         public string Permission { get; }
         public PermissionRequirement(string permission)
 		{
+			ArgumentException.ThrowIfNullOrWhiteSpace(permission);
 			Permission = permission;
 		}
 

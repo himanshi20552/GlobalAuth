@@ -19,6 +19,8 @@ public sealed class JwtTokenService : ITokenService
 	{
 		_signingKeyProvider = signingKeyProvider;
 		_jwtOptions = options.Value;
+		if (string.IsNullOrWhiteSpace(_jwtOptions.KeyId))
+			throw new InvalidOperationException("JWT key ID is required.");
 
 		if (string.IsNullOrWhiteSpace(_jwtOptions.Issuer))
 			throw new InvalidOperationException("JWT issuer is required.");
@@ -62,7 +64,7 @@ public sealed class JwtTokenService : ITokenService
 		{
 			new(JwtRegisteredClaimNames.Sub, request.SubjectId),
 			new(JwtRegisteredClaimNames.Jti, jti),
-			new(JwtRegisteredClaimNames.Iat,new DateTimeOffset(now).ToUnixTimeSeconds().ToString(),ClaimValueTypes.Integer64),
+			new(JwtRegisteredClaimNames.Iat,new DateTimeOffset(now).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture),ClaimValueTypes.Integer64),
 			new(GlobalAuthClaimTypes.PrincipalType, request.PrincipalType),
 			new(GlobalAuthClaimTypes.SessionId, request.SessionId.ToString()),
 			new(GlobalAuthClaimTypes.TokenType, "access")
