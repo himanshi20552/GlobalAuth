@@ -69,5 +69,60 @@ namespace GlobalAuth.Api.Controllers
             });
             return Ok(response);
         }
-    }
+        [HttpDelete("{sessionId:guid}")]
+        public async Task<IActionResult> RevokeSession(Guid sessionId, CancellationToken cancellationToken)
+        {
+            var subjectId = User.FindFirst("sub")?.Value;
+			var principalType = User.FindFirst("principal_type")?.Value;
+			var applicationId = User.FindFirst("client_id")?.Value;
+
+			if (string.IsNullOrWhiteSpace(subjectId) ||string.IsNullOrWhiteSpace(principalType) ||
+		      string.IsNullOrWhiteSpace(applicationId))
+			{
+				return Unauthorized(new
+				{
+					message = "Required identity information is missing."
+				});
+			}
+			string subjectType;
+			string? scopedApplicationId;
+			if (principalType == "USER")
+			{
+				subjectType = "USER";
+				scopedApplicationId = applicationId;
+			}
+			else if (principalType == "CLIENT")
+			{
+				// For machine clients, sub and client_id must be same.
+				if (subjectId != applicationId)
+				{
+					return Unauthorized(new
+					{
+						message = "Invalid client identity."
+					});
+				}
+
+				subjectType = "CLIENT";
+				scopedApplicationId = null;
+			}
+			else
+			{
+				return Unauthorized(new
+				{
+					message = "Invalid principal type."
+				});
+			}
+            var revoked = await _sessionService.RevokeOwnedSessionAsync(sessionId, subjectType, subjectId, scopedApplicationId,
+                "Revoked by session owner",cancellationToken);
+			if (!revoked)
+			{
+				return NotFound(new
+				{
+					message = "Active session not found."
+				});
+			}
+			return NoContent();
+
+		}
+	}
 }

@@ -129,6 +129,30 @@ namespace GlobalAuth.Api.Services
 			return await _authSessionRepository.GetActiveBySubjectAsync(subjectType,subjectId,
 				applicationId,cancellationToken);
 		}
+		public async Task<bool> RevokeOwnedSessionAsync(Guid sessionId, string subjectType, string subjectId, string? applicationId,
+	string reason, CancellationToken cancellationToken = default)
+		{
+			if (sessionId == Guid.Empty)
+				throw new ArgumentException("Session ID is required.");
+
+			if (string.IsNullOrWhiteSpace(subjectId))
+				throw new ArgumentException("Subject ID is required.");
+
+			if (string.IsNullOrWhiteSpace(reason))
+				throw new ArgumentException("Revocation reason is required.");
+
+			if (subjectType == "USER" && string.IsNullOrWhiteSpace(applicationId))
+				throw new ArgumentException("Application ID is required for user sessions.");
+
+			if (subjectType == "CLIENT" && applicationId != null)
+				throw new ArgumentException("Application ID must be null for client sessions.");
+
+			if (subjectType != "USER" && subjectType != "CLIENT")
+				throw new ArgumentException("Invalid subject type.");
+			return await _authSessionRepository.RevokeOwnedAsync(sessionId, subjectType, subjectId, applicationId,
+				reason, cancellationToken);
+
+		}
 
 		public async Task RevokeAllActiveSessionsAsync(string subjectType,string subjectId,string? applicationId,
 			string reason,CancellationToken cancellationToken = default)

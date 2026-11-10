@@ -113,6 +113,32 @@ namespace GlobalAuth.Api.Repositories
 
 			};
 		}
+		//revoke a session if it belongs to the specified user/client
+		//to provide a session specific logout functionality if needed
+		public async Task<bool> RevokeOwnedAsync(Guid sessionId, string subjectType, string subjectId, string? applicationId,
+			string reason, CancellationToken cancellationToken = default)
+		{
+			const string sql = """
+				Update auth.AuthSessions set 
+				RevokedAtUtc=SYSUTCDATETIME(),RevocationReason=@Reason
+				where SessionID=@SessionID and SubjectID=@SubjectID and SubjectType=@SubjectType
+				AND (( @ApplicationID is null and ApplicationID is null )
+				or @ApplicationID=ApplicationID )
+				and RevokedAtUtc is null and ExpiresAtUtc > SYSUTCDATETIME();
+				""";
+			await using var conn = _connFactory.CreateConnection();
+			await conn.OpenAsync(cancellationToken);
+			var command = new CommandDefinition(sql, new
+			{
+				SessionID = sessionId,
+				SubjectType = subjectType,
+				SubjectID = subjectId,
+				ApplicationID = applicationId,
+				Reason = reason
+			}, cancellationToken:cancellationToken);
+			var affectedRows = await conn.ExecuteAsync(command);
+			return affectedRows == 1;
+		}
 	
 	}
 }
