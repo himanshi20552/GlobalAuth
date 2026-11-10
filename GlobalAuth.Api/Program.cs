@@ -7,11 +7,43 @@ using GlobalAuth.Api.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Controllers and OpenAPI
 builder.Services.AddControllers();
+
+builder.Services.AddRateLimiter(options =>
+{
+	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+	// Client token generation: 10 requests per minute per IP.
+	options.AddPolicy("ClientTokenLimit", httpContext =>
+		RateLimitPartition.GetFixedWindowLimiter(
+			httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+			_ => new FixedWindowRateLimiterOptions
+			{
+				PermitLimit = 10,
+				Window = TimeSpan.FromMinutes(1),
+				QueueLimit = 0,
+				AutoReplenishment = true
+			}));
+
+	// Refresh and logout: 30 requests per minute per IP.
+	options.AddPolicy("TokenOperationsLimit", httpContext =>
+		RateLimitPartition.GetFixedWindowLimiter(
+			httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+			_ => new FixedWindowRateLimiterOptions
+			{
+				PermitLimit = 30,
+				Window = TimeSpan.FromMinutes(1),
+				QueueLimit = 0,
+				AutoReplenishment = true
+			}));
+});
+
 builder.Services.AddOpenApi();
 
 // Database
@@ -24,18 +56,18 @@ builder.Services.Configure<JwtOptions>(
 builder.Services.Configure<RefreshTokenOptions>(
 	builder.Configuration.GetSection("RefreshToken"));
 
-// Token services
+// token services
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<ITokenIssuanceService, TokenIssuanceService>();
 builder.Services.AddScoped<TokenRefreshService>();
 builder.Services.AddSingleton<RefreshTokenService>();
 
-// Session and authentication services
+// session and authentication services
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<ClientAuthenticationService>();
 builder.Services.AddScoped<ClientManagementService>();
 
-// Repositories
+// repos
 builder.Services.AddScoped<AuthSessionRepository>();
 builder.Services.AddScoped<AuthRefreshTokenRepository>();
 builder.Services.AddScoped<AuthTokenIssuanceAuditRepository>();
@@ -43,10 +75,10 @@ builder.Services.AddScoped<ClientCredentialRepository>();
 builder.Services.AddScoped<ClientPermissionRepository>();
 builder.Services.AddScoped<ApplicationRepository>();
 
-// RSA signing key provider
+// rsa signing key provider
 builder.Services.AddSingleton<ISigningKeyProvider, RsaFileSigningKeyProvider>();
 
-// JWT Bearer authentication
+// jwt Bearer authentication
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	.AddJwtBearer();
@@ -186,6 +218,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
+app.UseRateLimiter();
 
 // Authentication must run before authorization.
 app.UseAuthentication();

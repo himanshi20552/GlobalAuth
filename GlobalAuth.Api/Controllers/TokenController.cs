@@ -3,7 +3,7 @@ using GlobalAuth.Api.Contracts;
 using GlobalAuth.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.AspNetCore.RateLimiting;
 namespace GlobalAuth.Api.Controllers;
 
 [ApiController]
@@ -18,6 +18,7 @@ public sealed class TokenController : ControllerBase
 	}
 
 	[AllowAnonymous]
+	[EnableRateLimiting("TokenOperationsLimit")]
 	[HttpPost("refresh")]
 	public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
 	{
@@ -51,6 +52,7 @@ public sealed class TokenController : ControllerBase
 		}
 	}
 	[AllowAnonymous]
+	[EnableRateLimiting("TokenOperationsLimit")]
 	[HttpPost("logout")]
 	public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
 	{

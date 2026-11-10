@@ -2,9 +2,11 @@
 using GlobalAuth.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 namespace GlobalAuth.Api.Controllers
 {
 	[ApiController]
+	[EnableRateLimiting("ClientTokenLimit")]
 	[Route("api/auth/client")]
 	public sealed class ClientAuthenticationController : ControllerBase
 	{
