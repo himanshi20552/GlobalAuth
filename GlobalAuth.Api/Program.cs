@@ -1,4 +1,3 @@
-
 using System.Security.Cryptography;
 using GlobalAuth.Api.Configuration;
 using GlobalAuth.Api.Services;
@@ -8,7 +7,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +17,7 @@ builder.Services.AddRateLimiter(options =>
 {
 	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-	// Client token generation: 10 requests per minute per IP.
+	// for client token generation
 	options.AddPolicy("ClientTokenLimit", httpContext =>
 		RateLimitPartition.GetFixedWindowLimiter(
 			httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -31,7 +29,7 @@ builder.Services.AddRateLimiter(options =>
 				AutoReplenishment = true
 			}));
 
-	// Refresh and logout: 30 requests per minute per IP.
+	// for refresh and logout
 	options.AddPolicy("TokenOperationsLimit", httpContext =>
 		RateLimitPartition.GetFixedWindowLimiter(
 			httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -84,58 +82,45 @@ builder.Services
 	.AddJwtBearer();
 
 builder.Services
-	.AddOptions<JwtBearerOptions>(
-		JwtBearerDefaults.AuthenticationScheme)
+	.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
 	.Configure<ISigningKeyProvider, IOptions<JwtOptions>>(
 		(jwtOptions, signingKeyProvider, jwtOptionsAccessor) =>
 		{
 			var jwtSettings = jwtOptionsAccessor.Value;
-
 			var signingKey = signingKeyProvider
 				.GetSigningCredentials()
 				.Key as RsaSecurityKey
 				?? throw new InvalidOperationException(
 					"RSA signing key is required.");
-
 			// Create a separate RSA instance containing only
 			// the public key parameters.
 			var publicRsa = RSA.Create();
 
 			var publicParameters = signingKey.Rsa!.ExportParameters(false);
 			publicRsa.ImportParameters(publicParameters);
-
 			var validationKey = new RsaSecurityKey(publicRsa)
 			{
 				KeyId = jwtSettings.KeyId
 			};
 
 			jwtOptions.MapInboundClaims = false;
-
 			jwtOptions.TokenValidationParameters =
 				new TokenValidationParameters
 				{
 					ValidateIssuerSigningKey = true,
 					IssuerSigningKey = validationKey,
-
 					ValidateIssuer = true,
 					ValidIssuer = jwtSettings.Issuer,
-
 					ValidateAudience = true,
 					ValidAudience = jwtSettings.Audience,
-
 					ValidateLifetime = true,
 					ClockSkew = TimeSpan.FromMinutes(1),
 
 					ValidAlgorithms = new[]
-					{
-						SecurityAlgorithms.RsaSha256
-					},
+					{SecurityAlgorithms.RsaSha256},
 
 					ValidTypes = new[]
-					{
-						"at+jwt"
-					},
-
+					{"at+jwt"},
 					NameClaimType = "sub",
 					RoleClaimType = "role"
 				};
@@ -145,13 +130,11 @@ builder.Services
 				OnTokenValidated = context =>
 				{
 					var principal = context.Principal;
-
 					if (principal is null)
 					{
 						context.Fail("Missing token principal.");
 						return Task.CompletedTask;
 					}
-
 					string[] requiredClaims =
 					{
 						"sub",
@@ -165,26 +148,20 @@ builder.Services
 					{
 						var claims = principal.FindAll(claimType).ToArray();
 
-						if (claims.Length != 1 ||
-							string.IsNullOrWhiteSpace(claims[0].Value))
+						if (claims.Length != 1 || string.IsNullOrWhiteSpace(claims[0].Value))
 						{
-							context.Fail(
-								$"Invalid or missing {claimType} claim.");
-
+							context.Fail($"Invalid or missing {claimType} claim.");
 							return Task.CompletedTask;
 						}
 					}
 
-					if (!Guid.TryParse(
-						principal.FindFirst("sid")!.Value,
-						out _))
+					if (!Guid.TryParse(principal.FindFirst("sid")!.Value,out _))
 					{
 						context.Fail("Invalid session ID.");
 						return Task.CompletedTask;
 					}
 
-					var principalType =
-						principal.FindFirst("principal_type")!.Value;
+					var principalType =principal.FindFirst("principal_type")!.Value;
 
 					if (principalType != "USER" &&
 						principalType != "CLIENT")
@@ -193,20 +170,17 @@ builder.Services
 						return Task.CompletedTask;
 					}
 
-					var tokenType =
-						principal.FindFirst("token_type")!.Value;
+					var tokenType =principal.FindFirst("token_type")!.Value;
 
 					if (tokenType != "access")
 					{
 						context.Fail("Invalid token type.");
 						return Task.CompletedTask;
 					}
-
 					return Task.CompletedTask;
 				}
 			};
 		});
-
 builder.Services.AddAuthorization();
 
 // Build application
