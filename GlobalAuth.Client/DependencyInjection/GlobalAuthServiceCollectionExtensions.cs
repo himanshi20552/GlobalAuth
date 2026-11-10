@@ -9,8 +9,7 @@ namespace GlobalAuth.Client.DependencyInjection;
 
 public static class GlobalAuthServiceCollectionExtensions
 {
-	public static IServiceCollection AddGlobalAuthentication(
-		this IServiceCollection services,
+	public static IServiceCollection AddGlobalAuthentication(this IServiceCollection services,
 		Action<GlobalAuthOptions> configureOptions)
 	{
 		ArgumentNullException.ThrowIfNull(configureOptions);
@@ -60,6 +59,8 @@ public static class GlobalAuthServiceCollectionExtensions
 
 						ValidateAudience = true,
 						ValidAudience = options.Audience,
+						RequireSignedTokens=true,
+						RequireExpirationTime=true,
 
 						ValidateLifetime = true,
 						ClockSkew = TimeSpan.FromMinutes(1),
