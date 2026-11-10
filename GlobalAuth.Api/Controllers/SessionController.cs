@@ -124,5 +124,48 @@ namespace GlobalAuth.Api.Controllers
 			return NoContent();
 
 		}
+        [HttpDelete]
+        public async Task<IActionResult> RevokeAllSessions(CancellationToken cancellationToken)
+        {
+            var subjectId = User.FindFirst("sub")?.Value;
+            var principalType = User.FindFirst("principal_type")?.Value;
+            var applicationId = User.FindFirst("client_id")?.Value;
+            if (string.IsNullOrWhiteSpace(subjectId) || string.IsNullOrWhiteSpace(principalType) ||
+                string.IsNullOrWhiteSpace(applicationId)) {
+                return Unauthorized(new
+                {
+                    message = "Required Identity information is missing"
+                });
+            }
+            string subjectType;
+            string? scopedApplicationID;
+            if (principalType == "USER")
+            {
+                subjectType = "USER";
+                scopedApplicationID = applicationId;
+            }
+            else if (principalType == "CLIENT")
+            {
+                if (subjectId != applicationId)
+                {
+                    return Unauthorized(new
+                    {
+                        message = "Invalid client identity."
+                    });
+                }
+                subjectType = "CLIENT";
+                scopedApplicationID = null;
+            }
+            else {
+				return Unauthorized(new
+				{
+					message = "Invalid principal type."
+				});
+			}
+            await _sessionService.RevokeAllActiveSessionsAsync(subjectType, subjectId, scopedApplicationID,
+                "All sessions revoked", cancellationToken);
+            return NoContent();
+
+        }
 	}
 }
