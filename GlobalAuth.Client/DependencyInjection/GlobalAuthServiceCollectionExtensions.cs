@@ -1,143 +1,165 @@
-﻿using System.Security.Cryptography;
+﻿using GlobalAuth.Client.Authorization;
 using GlobalAuth.Client.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using GlobalAuth.Client.Authorization;
-using Microsoft.AspNetCore.Authorization;
 
-namespace GlobalAuth.Client.DependencyInjection
+namespace GlobalAuth.Client.DependencyInjection;
+
+public static class GlobalAuthServiceCollectionExtensions
 {
-	public static class GlobalAuthServiceCollectionExtensions
+	public static IServiceCollection AddGlobalAuthentication(
+		this IServiceCollection services,
+		Action<GlobalAuthOptions> configureOptions)
 	{
-		public static IServiceCollection AddGlobalAuthentication(
-			this IServiceCollection services,
-			Action<GlobalAuthOptions> configureOptions)
+		ArgumentNullException.ThrowIfNull(configureOptions);
+
+		var options = new GlobalAuthOptions();
+		configureOptions(options);
+
+		if (string.IsNullOrWhiteSpace(options.Issuer))
+			throw new InvalidOperationException("Issuer is required.");
+
+		if (string.IsNullOrWhiteSpace(options.Audience))
+			throw new InvalidOperationException("Audience is required.");
+
+		if (!Uri.TryCreate(
+				options.Authority,
+				UriKind.Absolute,
+				out var authorityUri) ||
+			authorityUri.Scheme != Uri.UriSchemeHttps)
 		{
-			ArgumentNullException.ThrowIfNull(configureOptions);
+			throw new InvalidOperationException(
+				"Authority must be a valid HTTPS URL.");
+		}
 
-			var options = new GlobalAuthOptions();
-			configureOptions(options);
+		var authority = authorityUri.ToString().TrimEnd('/');
 
-			if (string.IsNullOrWhiteSpace(options.Issuer))
-				throw new InvalidOperationException("Issuer is required.");
-
-			if (string.IsNullOrWhiteSpace(options.Audience))
-				throw new InvalidOperationException("Audience is required.");
-
-			if (string.IsNullOrWhiteSpace(options.PublicKeyPath))
-				throw new InvalidOperationException("PublicKeyPath is required.");
-
-			if (string.IsNullOrWhiteSpace(options.KeyId))
-				throw new InvalidOperationException("KeyId is required.");
-
-			if (!File.Exists(options.PublicKeyPath))
-				throw new FileNotFoundException(
-					"Public key file not found.",
-					options.PublicKeyPath);
-
-			var rsa = RSA.Create();
-
-			try
+		services.AddAuthentication(
+			JwtBearerDefaults.AuthenticationScheme)
+			.AddJwtBearer(jwtOptions =>
 			{
-				rsa.ImportFromPem(File.ReadAllText(options.PublicKeyPath));
+				jwtOptions.Authority = authority;
 
-				if (rsa.KeySize < 2048)
-					throw new InvalidOperationException(
-						"RSA public key size must be at least 2048 bits.");
+				// Require HTTPS when retrieving authentication metadata.
+				jwtOptions.RequireHttpsMetadata = true;
 
-				var signingKey = new RsaSecurityKey(rsa)
-				{
-					KeyId = options.KeyId
-				};
+				// Refresh metadata when a token contains an unknown kid.
+				jwtOptions.RefreshOnIssuerKeyNotFound = true;
 
-				services.AddSingleton<RSA>(_ => rsa);
+				jwtOptions.MapInboundClaims = false;
 
-				services.AddAuthentication(
-					JwtBearerDefaults.AuthenticationScheme)
-					.AddJwtBearer(jwtOptions =>
+				jwtOptions.TokenValidationParameters =
+					new TokenValidationParameters
 					{
-						jwtOptions.MapInboundClaims = false;
+						ValidateIssuerSigningKey = true,
 
-						jwtOptions.TokenValidationParameters =
-							new TokenValidationParameters
-							{
-								ValidateIssuerSigningKey = true,
-								IssuerSigningKey = signingKey,
+						ValidateIssuer = true,
+						ValidIssuer = options.Issuer,
 
-								ValidateIssuer = true,
-								ValidIssuer = options.Issuer,
+						ValidateAudience = true,
+						ValidAudience = options.Audience,
 
-								ValidateAudience = true,
-								ValidAudience = options.Audience,
+						ValidateLifetime = true,
+						ClockSkew = TimeSpan.FromMinutes(1),
 
-								ValidateLifetime = true,
-								ClockSkew = TimeSpan.FromMinutes(1),
-								ValidAlgorithms = new[]
-								{SecurityAlgorithms.RsaSha256},
-								ValidTypes = new[]
-								{"at+jwt"},
-
-								NameClaimType = "sub",
-								RoleClaimType = "role"
-							};
-						jwtOptions.Events = new JwtBearerEvents
+						ValidAlgorithms = new[]
 						{
-							OnTokenValidated = context =>
+							SecurityAlgorithms.RsaSha256
+						},
+
+						ValidTypes = new[]
+						{
+							"at+jwt"
+						},
+
+						NameClaimType = "sub",
+						RoleClaimType = "role"
+					};
+
+				jwtOptions.Events = new JwtBearerEvents
+				{
+					OnTokenValidated = context =>
+					{
+						var principal = context.Principal;
+
+						if (principal == null)
+						{
+							context.Fail("Missing token principal.");
+							return Task.CompletedTask;
+						}
+
+						string[] requiredClaims =
+						{
+							"sub",
+							"jti",
+							"sid",
+							"principal_type",
+							"token_type"
+						};
+
+						foreach (var claimType in requiredClaims)
+						{
+							var claims = principal
+								.FindAll(claimType)
+								.ToArray();
+
+							if (claims.Length != 1 ||
+								string.IsNullOrWhiteSpace(claims[0].Value))
 							{
-								var principal = context.Principal;
-								if (principal == null)
-								{
-									context.Fail("Missing token principal");
-									return Task.CompletedTask;
-								}
-								string[] requiredClaims =
-								{ "sub","jti","sid","principal_type","token_type" };
-								foreach (var claimType in requiredClaims) {
-									var claims = principal.FindAll(claimType).ToArray();
-									if (claims.Length != 1 || string.IsNullOrWhiteSpace(claims[0].Value))
-									{
-										context.Fail($"Invalid or missing {claimType} claim.");
-										return Task.CompletedTask;
-									}
-								}
-								var sessionId = principal.FindFirst("sid")!.Value;
-								if (!Guid.TryParse(sessionId, out _))
-								{
-									context.Fail("Invalid Session ID");
-									return Task.CompletedTask;
-								}
-								var principalType = principal.FindFirst("principal_type")!.Value;
-								if(!string.Equals(principalType,"USER",StringComparison.OrdinalIgnoreCase)&&
-								!string.Equals(principalType, "CLIENT",StringComparison.OrdinalIgnoreCase))
-								{
-									context.Fail("Invalid principal type.");
-									return Task.CompletedTask;
-								}
-
-								var tokenType = principal.FindFirst("token_type")!.Value;
-
-								if (tokenType != "access")
-								{
-									context.Fail("Invalid token type.");
-									return Task.CompletedTask;
-								}
+								context.Fail(
+									$"Invalid or missing {claimType} claim.");
 
 								return Task.CompletedTask;
 							}
-						};
-					});
-				services.AddAuthorization();
-				services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-				return services;
-			}
-			catch
-			{
-				// If registration fails, the container will not own
-				// this RSA instance, so dispose it here.
-				rsa.Dispose();
-				throw;
-			}
-		}
+						}
+
+						var sessionId =
+							principal.FindFirst("sid")!.Value;
+
+						if (!Guid.TryParse(sessionId, out _))
+						{
+							context.Fail("Invalid Session ID.");
+							return Task.CompletedTask;
+						}
+
+						var principalType =
+							principal.FindFirst("principal_type")!.Value;
+
+						if (!string.Equals(
+								principalType,
+								"USER",
+								StringComparison.OrdinalIgnoreCase) &&
+							!string.Equals(
+								principalType,
+								"CLIENT",
+								StringComparison.OrdinalIgnoreCase))
+						{
+							context.Fail("Invalid principal type.");
+							return Task.CompletedTask;
+						}
+
+						var tokenType =
+							principal.FindFirst("token_type")!.Value;
+
+						if (tokenType != "access")
+						{
+							context.Fail("Invalid token type.");
+							return Task.CompletedTask;
+						}
+
+						return Task.CompletedTask;
+					}
+				};
+			});
+
+		services.AddAuthorization();
+
+		services.AddScoped<
+			IAuthorizationHandler,
+			PermissionAuthorizationHandler>();
+
+		return services;
 	}
 }
