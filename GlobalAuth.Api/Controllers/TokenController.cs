@@ -19,7 +19,7 @@ public sealed class TokenController : ControllerBase
 
 	[AllowAnonymous]
 	[HttpPost("refresh")]
-	public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request,CancellationToken cancellationToken)
+	public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
 	{
 		if (string.IsNullOrWhiteSpace(request.RefreshToken))
 		{
@@ -49,5 +49,20 @@ public sealed class TokenController : ControllerBase
 				message = "Invalid or expired refresh token."
 			});
 		}
+	}
+	[AllowAnonymous]
+	[HttpPost("logout")]
+	public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
+	{
+		if (string.IsNullOrWhiteSpace(request.RefreshToken))
+		{
+			return BadRequest(new
+			{
+				message = "Refresh token required."
+			});
+		}
+		await _tokenRefreshService.LogoutAsync(request.RefreshToken, cancellationToken);
+		return NoContent();
+
 	}
 }

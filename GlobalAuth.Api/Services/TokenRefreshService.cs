@@ -65,6 +65,19 @@ namespace GlobalAuth.Api.Services
 
 			throw new InvalidOperationException("Invalid session principal type.");
 		}
+		public async Task LogoutAsync(string presentedRefreshToken, CancellationToken cancellationToken = default)
+		{
+			if (string.IsNullOrWhiteSpace(presentedRefreshToken))
+				throw new ArgumentException("Refresh token is required.");
+			//retrieve session associated with refresh token
+			var context = await GetRefreshContextAsync(presentedRefreshToken, cancellationToken);
+			if (context is null)
+				return;
+			//revoke the entire session
+			//all related refresh tokens will also fail validation
+			await _sessionService.RevokeSessionAsync(context.SessionID, "User logged out", cancellationToken);
+
+		}
 		public async Task<RefreshTokenResponse> RefreshAsync(string presentedRefreshToken,
 			string? ipAddress=null, string? userAgent=null, string? deviceId=null,CancellationToken cancellationToken = default)
 		{
