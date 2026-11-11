@@ -58,13 +58,8 @@ namespace GlobalAuth.Api.Controllers
             var response = sessions.Select(session => new
             {
                 session.SessionID,
-                session.SubjectType,
-                session.DeviceID,
-                session.IPAddress,
-                session.UserAgent,
                 session.CreatedAtUtc,
                 session.LastActivityAtUtc,
-                session.ExpiresAtUtc,
                 IsCurrentSession = session.SessionID == currentSessionGuid
             });
             return Ok(response);
