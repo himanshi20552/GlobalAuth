@@ -10,17 +10,21 @@ public sealed class ApplicationService
 	{
 		_applicationRepository = applicationRepository;
 	}
-	public async Task DeactivateApplicationAsync(string applicationId,CancellationToken cancellationToken = default)
+	public async Task DeactivateApplicationAsync(string applicationId,string updatedBy,CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(applicationId))
 			throw new ArgumentException("Application ID is required.", nameof(applicationId));
-		await _applicationRepository.DeactivateAsync(applicationId,cancellationToken);
+		if (string.IsNullOrWhiteSpace(updatedBy))
+			throw new ArgumentException("Employee ID is required.", nameof(updatedBy));
+		await _applicationRepository.DeactivateAsync(applicationId,updatedBy,cancellationToken);
 	}
 
-	public async Task ReactivateApplicationAsync(string applicationId,CancellationToken cancellationToken = default)
+	public async Task ReactivateApplicationAsync(string applicationId,string updatedBy,CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(applicationId))
 			throw new ArgumentException("Application ID is required.", nameof(applicationId));
-		await _applicationRepository.ReactivateAsync(applicationId,cancellationToken);
+		if (string.IsNullOrWhiteSpace(updatedBy))
+			throw new ArgumentException("Employee ID is required.", nameof(updatedBy));
+		await _applicationRepository.ReactivateAsync(applicationId,updatedBy,cancellationToken);
 	}
 }
