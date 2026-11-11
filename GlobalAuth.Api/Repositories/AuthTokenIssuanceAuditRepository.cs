@@ -11,14 +11,11 @@ public sealed class AuthTokenIssuanceAuditRepository
 	{
 		_connFactory = connFactory;
 	}
-	public async Task CreateAsync(
-		AuthTokenIssuanceAudit audit,
-		CancellationToken cancellationToken = default)
+	public async Task CreateAsync(AuthTokenIssuanceAudit audit,CancellationToken cancellationToken = default)
 	{
 		const string sql = """
-			    Insert into auth.AuthTokenIssuanceAudit ( Jti, SessionID, IssuanceType, IssuedAtUtc,ExpiresAtUtc,IpAddress,UserAgent,DeviceID)
-						Values( @Jti, @SessionID , @IssuanceType, @IssuedAtUtc, @ExpiresAtUtc, @IpAddress, @UserAgent,
-						@DeviceID);
+			    Insert into auth.AuthTokenIssuanceAudit ( Jti,PrincipalType,SubjectID, SessionID, IssuanceType, IssuedAtUtc,IpAddress)
+						Values( @Jti,@PricipalType,@SubjectID, @SessionID , @IssuanceType, @IssuedAtUtc, @IpAddress);
 			""";
 
 		await using var conn = _connFactory.CreateConnection();
