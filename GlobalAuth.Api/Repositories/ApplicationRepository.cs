@@ -14,9 +14,7 @@ public sealed class ApplicationRepository
 		_connFactory = connFactory;
 	}
 
-	public async Task DeactivateAsync(
-		string applicationId,
-		CancellationToken cancellationToken = default)
+	public async Task DeactivateAsync(string applicationId,string updatedBy,CancellationToken cancellationToken = default)
 	{
 		const string procedure = "auth.DeactivateApplication";
 
@@ -25,7 +23,7 @@ public sealed class ApplicationRepository
 
 		var command = new CommandDefinition(
 			procedure,
-			new { ApplicationID = applicationId },
+			new { ApplicationID = applicationId,UpdatedBy=updatedBy },
 			commandType: CommandType.StoredProcedure,
 			cancellationToken: cancellationToken
 		);
@@ -34,7 +32,7 @@ public sealed class ApplicationRepository
 	}
 
 	public async Task ReactivateAsync(
-		string applicationId,
+		string applicationId,string updatedBy,
 		CancellationToken cancellationToken = default)
 	{
 		const string procedure = "auth.ReactivateApplication";
@@ -44,7 +42,7 @@ public sealed class ApplicationRepository
 
 		var command = new CommandDefinition(
 			procedure,
-			new { ApplicationID = applicationId },
+			new { ApplicationID = applicationId,UpdatedBy=updatedBy },
 			commandType: CommandType.StoredProcedure,
 			cancellationToken: cancellationToken
 		);

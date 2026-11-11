@@ -17,6 +17,7 @@
 
 	<ItemGroup>
 	  <Folder Include="Authorization\" />
+	  <Folder Include="UserAuthentication\" />
 	</ItemGroup>
 
 

@@ -24,7 +24,7 @@ namespace GlobalAuth.Api.Repositories
 		}
 
 		public async Task DeactivateAsync(
-			string clientId,
+			string clientId, string updatedBy,
 			CancellationToken cancellationToken = default)
 		{
 			const string procedure = "auth.DeactivateClient";
@@ -34,7 +34,7 @@ namespace GlobalAuth.Api.Repositories
 
 			var command = new CommandDefinition(
 				procedure,
-				new { ClientID = clientId },
+				new { ClientID = clientId , UpdatedBy=updatedBy},
 				commandType: CommandType.StoredProcedure,
 				cancellationToken: cancellationToken
 			);
@@ -43,7 +43,7 @@ namespace GlobalAuth.Api.Repositories
 		}
 
 		public async Task ReactivateAsync(
-			string clientId,
+			string clientId,string updatedBy,
 			CancellationToken cancellationToken = default)
 		{
 			const string procedure = "auth.ReactivateClient";
@@ -53,7 +53,7 @@ namespace GlobalAuth.Api.Repositories
 
 			var command = new CommandDefinition(
 				procedure,
-				new { ClientID = clientId },
+				new { ClientID = clientId, UpdatedBy=updatedBy },
 				commandType: CommandType.StoredProcedure,
 				cancellationToken: cancellationToken
 			);
