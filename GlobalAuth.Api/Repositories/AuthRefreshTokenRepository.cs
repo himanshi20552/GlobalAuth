@@ -18,8 +18,12 @@ namespace GlobalAuth.Api.Repositories
                 Set xact abort on;
                 begin transaction;
                 declare @NowUtc Datetime2=SYSUTCDATETIME();
+                declare @ApplicationID nvarchar(100);
                 declare @IdleTimeoutMinutes int;
                 declare @RowsInserted int=0;
+
+                select @ApplicationID=ApplicationID from
+                auth.AuthSessions where SessionID=@SessionID;
 
                 Select @IdleTimeoutMinutes=IdleTimeoutMinutes
                 from auth.Applications with (UPDLOCK, HOLDLOCK)
@@ -32,7 +36,7 @@ namespace GlobalAuth.Api.Repositories
                 select @RefreshTokenID, s.SessionID,@FamilyID,@TokenHash,@ExpiresAtUtc
                 from auth.AuthSessions s with (UPDLOCK,HOLDLOCK)
                 where s.SessionID = @SessionID and s.ApplicationID = @ApplicationID
-                 and s.SubjectID = @SubjectID and s.StatusID = 1
+                 and s.StatusID = 1
                  and s.RevokedAtUtc IS NULL and s.LastActivityAtUtc > DATEADD(MINUTE, -@IdleTimeoutMinutes, @NowUtc)
                  and @ExpiresAtUtc > @NowUtc;
                  set @RowsInserted = @@ROWCOUNT;
@@ -53,7 +57,7 @@ namespace GlobalAuth.Api.Repositories
            var rowsAffected= await conn.ExecuteScalarAsync<int>(command);
             return rowsAffected == 1;
         }
-        public async Task<RefreshTokenRotationResult> RotationAsync(byte[] presentedTokenHash, Guid newRefreshTokenId,
+        public async Task<int> RotationAsync(byte[] presentedTokenHash, Guid newRefreshTokenId,
             byte[] newTokenHash, DateTime newExpiresAtUtc, string? jti, DateTime? accessTokenExpiresAtUtc,
             string? ipAddress,CancellationToken cancellationToken = default)
         {
@@ -70,7 +74,7 @@ namespace GlobalAuth.Api.Repositories
                     AccessTokenExpiresAtUtc=accessTokenExpiresAtUtc,
                     IPAddress=ipAddress
                 }, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken);
-            var result = await conn.QuerySingleAsync<RefreshTokenRotationResult>(command);
+            var result = await conn.ExecuteScalarAsync<int>(command);
             return result;
         }
 		public async Task<RefreshTokenContext?> GetContextByTokenHashAsync(byte[] tokenHash,CancellationToken cancellationToken = default)
