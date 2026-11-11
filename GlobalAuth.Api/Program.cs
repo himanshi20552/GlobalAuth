@@ -72,7 +72,7 @@ builder.Services.AddScoped<AuthTokenIssuanceAuditRepository>();
 builder.Services.AddScoped<ClientCredentialRepository>();
 builder.Services.AddScoped<ClientPermissionRepository>();
 builder.Services.AddScoped<ApplicationRepository>();
-
+builder.Services.AddScoped<ClientRefreshTokenRepository>();
 // rsa signing key provider
 builder.Services.AddSingleton<ISigningKeyProvider, RsaFileSigningKeyProvider>();
 
