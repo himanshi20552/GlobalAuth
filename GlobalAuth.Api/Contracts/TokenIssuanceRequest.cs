@@ -8,8 +8,6 @@
 		public List<string> Roles { get; set; } = [];
 		public List<string> Permissions { get; set; } = [];
 		// Audit metadata
-		public string? DeviceId { get; set; }
 		public string? IpAddress { get; set; }
-		public string? UserAgent { get; set; }
 	}
 }

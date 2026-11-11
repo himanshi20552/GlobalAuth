@@ -19,10 +19,8 @@ namespace GlobalAuth.Api.Controllers
 		[HttpPost("token")]
 		public async Task<IActionResult> GenerateToken([FromBody] ClientTokenRequest request, CancellationToken cancellationToken) {
 			var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-			var userAgent = Request.Headers.UserAgent.ToString();
 			var result = await _clientAuthenticationService.AuthenticateAndIssueTokensAsync(
-				request.ClientId, request.ClientSecret, deviceId: null, IpAddress: ipAddress,
-				userAgent: userAgent, cancellationToken: cancellationToken);
+				request.ClientId, request.ClientSecret, IpAddress: ipAddress, cancellationToken: cancellationToken);
 			if (result is null)
 			{
 				return Unauthorized(new

@@ -47,9 +47,7 @@ namespace GlobalAuth.Api.Services
 				ApplicationId = null,
 				Roles = [],
 				Permissions = permissions.ToList(),
-				DeviceId = deviceId,
-				IpAddress = IpAddress,
-				UserAgent = userAgent
+				IpAddress = IpAddress
 			};
 			return await _tokenIssuanceService.IssueAsync(issuanceRequest, cancellationToken);
 		}
