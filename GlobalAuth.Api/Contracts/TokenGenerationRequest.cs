@@ -7,8 +7,7 @@
 		public string? ApplicationId { get; set; }
 		public List<string> Roles { get; set; } = [];
 		public List<string> Permissions { get; set; } = [];
-		public Guid SessionId { get; set; }
-		public DateTime SessionExpiresAtUtc { get; set; }
+		public Guid? SessionId { get; set; }
 
 	}
 }

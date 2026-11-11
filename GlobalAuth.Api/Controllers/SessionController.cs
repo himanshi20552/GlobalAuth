@@ -1,166 +1,123 @@
-﻿using GlobalAuth.Api.Services;
+﻿
+using GlobalAuth.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GlobalAuth.Api.Controllers
+namespace GlobalAuth.Api.Controllers;
+
+[ApiController]
+[Route("api/auth/sessions")]
+[Authorize]
+public sealed class SessionController : ControllerBase
 {
-    [ApiController]
-    [Route("api/auth/sessions")]
-    [Authorize]
-    public sealed class SessionController : ControllerBase
-    {
-        private readonly SessionService _sessionService;
-        public SessionController(SessionService sessionService)
-        {
-            _sessionService = sessionService;
-        }
-        [HttpGet]
-        public async Task<IActionResult> GetActiveSessions(CancellationToken cancellationToken)
-        {
-            var subjectId = User.FindFirst("sub")?.Value;
-            var principalType = User.FindFirst("principal_type")?.Value;
-            var applicationId = User.FindFirst("client_id")?.Value;
-            var currentSessionId = User.FindFirst("sid")?.Value;
-            if (string.IsNullOrWhiteSpace(subjectId) || string.IsNullOrWhiteSpace(principalType) ||
-                string.IsNullOrWhiteSpace(applicationId) || !Guid.TryParse(currentSessionId, out var currentSessionGuid))
-            {
-                return Unauthorized(new
-                {
-                    message = "Required Information is missing."
-                });
+	private readonly SessionService _sessionService;
 
-            }
-            IReadOnlyList<Models.AuthSession> sessions;
-            if (principalType == "USER")
-            {
-                sessions = await _sessionService.GetActiveSessionsAsync(subjectType: "USER",
-                    subjectId: subjectId, applicationId: applicationId, cancellationToken: cancellationToken);
-            }
-            else if (principalType == "CLIENT")
-            {
-                if (subjectId != applicationId)
-                {
-                    return Unauthorized(new
-                    {
-                        message = "Invalid client identity"
-                    });
-                }
-                sessions = await _sessionService.GetActiveSessionsAsync(subjectType: "CLIENT", subjectId: subjectId,
-                    applicationId: null, cancellationToken: cancellationToken);
+	public SessionController(SessionService sessionService)
+	{
+		_sessionService = sessionService;
+	}
 
-            }
-            else {
-                return Unauthorized(new
-                {
-                    message = "Invalid principal type"
-                });
-            }
-            var response = sessions.Select(session => new
-            {
-                session.SessionID,
-                session.CreatedAtUtc,
-                session.LastActivityAtUtc,
-                IsCurrentSession = session.SessionID == currentSessionGuid
-            });
-            return Ok(response);
-        }
-        [HttpDelete("{sessionId:guid}")]
-        public async Task<IActionResult> RevokeSession(Guid sessionId, CancellationToken cancellationToken)
-        {
-            var subjectId = User.FindFirst("sub")?.Value;
-			var principalType = User.FindFirst("principal_type")?.Value;
-			var applicationId = User.FindFirst("client_id")?.Value;
+	[HttpGet]
+	public async Task<IActionResult> GetActiveSessions(
+		CancellationToken cancellationToken)
+	{
+		var subjectId = User.FindFirst("sub")?.Value;
+		var principalType = User.FindFirst("principal_type")?.Value;
+		var applicationId = User.FindFirst("client_id")?.Value;
+		var currentSessionId = User.FindFirst("sid")?.Value;
 
-			if (string.IsNullOrWhiteSpace(subjectId) ||string.IsNullOrWhiteSpace(principalType) ||
-		      string.IsNullOrWhiteSpace(applicationId))
-			{
-				return Unauthorized(new
-				{
-					message = "Required identity information is missing."
-				});
-			}
-			string subjectType;
-			string? scopedApplicationId;
-			if (principalType == "USER")
-			{
-				subjectType = "USER";
-				scopedApplicationId = applicationId;
-			}
-			else if (principalType == "CLIENT")
-			{
-				// For machine clients, sub and client_id must be same.
-				if (subjectId != applicationId)
-				{
-					return Unauthorized(new
-					{
-						message = "Invalid client identity."
-					});
-				}
+		if (principalType != "USER")
+			return Forbid();
 
-				subjectType = "CLIENT";
-				scopedApplicationId = null;
-			}
-			else
+		if (string.IsNullOrWhiteSpace(subjectId) ||
+			string.IsNullOrWhiteSpace(applicationId) ||
+			!Guid.TryParse(currentSessionId, out var currentSessionGuid))
+		{
+			return Unauthorized(new
 			{
-				return Unauthorized(new
-				{
-					message = "Invalid principal type."
-				});
-			}
-            var revoked = await _sessionService.RevokeOwnedSessionAsync(sessionId, subjectType, subjectId, scopedApplicationId,
-                "Revoked by session owner",cancellationToken);
-			if (!revoked)
-			{
-				return NotFound(new
-				{
-					message = "Active session not found."
-				});
-			}
-			return NoContent();
-
+				message = "Required user session information is missing."
+			});
 		}
-        [HttpDelete]
-        public async Task<IActionResult> RevokeAllSessions(CancellationToken cancellationToken)
-        {
-            var subjectId = User.FindFirst("sub")?.Value;
-            var principalType = User.FindFirst("principal_type")?.Value;
-            var applicationId = User.FindFirst("client_id")?.Value;
-            if (string.IsNullOrWhiteSpace(subjectId) || string.IsNullOrWhiteSpace(principalType) ||
-                string.IsNullOrWhiteSpace(applicationId)) {
-                return Unauthorized(new
-                {
-                    message = "Required Identity information is missing"
-                });
-            }
-            string subjectType;
-            string? scopedApplicationID;
-            if (principalType == "USER")
-            {
-                subjectType = "USER";
-                scopedApplicationID = applicationId;
-            }
-            else if (principalType == "CLIENT")
-            {
-                if (subjectId != applicationId)
-                {
-                    return Unauthorized(new
-                    {
-                        message = "Invalid client identity."
-                    });
-                }
-                subjectType = "CLIENT";
-                scopedApplicationID = null;
-            }
-            else {
-				return Unauthorized(new
-				{
-					message = "Invalid principal type."
-				});
-			}
-            await _sessionService.RevokeAllActiveSessionsAsync(subjectType, subjectId, scopedApplicationID,
-                "All sessions revoked", cancellationToken);
-            return NoContent();
 
-        }
+		var sessions = await _sessionService.GetActiveSessionsAsync(
+			subjectId,
+			applicationId,
+			cancellationToken);
+
+		var response = sessions.Select(session => new
+		{
+			session.SessionID,
+			session.CreatedAtUtc,
+			session.LastActivityAtUtc,
+			IsCurrentSession = session.SessionID == currentSessionGuid
+		});
+
+		return Ok(response);
+	}
+
+	[HttpDelete("{sessionId:guid}")]
+	public async Task<IActionResult> RevokeSession(
+		Guid sessionId,
+		CancellationToken cancellationToken)
+	{
+		var subjectId = User.FindFirst("sub")?.Value;
+		var principalType = User.FindFirst("principal_type")?.Value;
+		var applicationId = User.FindFirst("client_id")?.Value;
+
+		if (principalType != "USER")
+			return Forbid();
+
+		if (string.IsNullOrWhiteSpace(subjectId) ||
+			string.IsNullOrWhiteSpace(applicationId))
+		{
+			return Unauthorized(new
+			{
+				message = "Required user identity information is missing."
+			});
+		}
+
+		var revoked = await _sessionService.RevokeOwnedSessionAsync(
+			sessionId,
+			subjectId,
+			applicationId,
+			"SessionController.RevokeSession",
+			cancellationToken);
+
+		if (!revoked)
+		{
+			return NotFound(new
+			{
+				message = "Active session not found."
+			});
+		}
+
+		return NoContent();
+	}
+
+	[HttpDelete]
+	public async Task<IActionResult> RevokeAllSessions(
+		CancellationToken cancellationToken)
+	{
+		var subjectId = User.FindFirst("sub")?.Value;
+		var principalType = User.FindFirst("principal_type")?.Value;
+		var applicationId = User.FindFirst("client_id")?.Value;
+
+		if (principalType != "USER")
+			return Forbid();
+
+		if (string.IsNullOrWhiteSpace(subjectId) ||
+			string.IsNullOrWhiteSpace(applicationId))
+		{
+			return Unauthorized(new
+			{
+				message = "Required user identity information is missing."
+			});
+		}
+
+		await _sessionService.RevokeAllActiveSessionsAsync(subjectId,applicationId,
+			"SessionController.RevokeAllSessions",
+			cancellationToken);
+
+		return NoContent();
 	}
 }
