@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-
+using GlobalAuth.Client.Services;
+using Microsoft.Extensions.Logging;
 namespace GlobalAuth.Client.DependencyInjection;
 
 public static class GlobalAuthServiceCollectionExtensions
@@ -34,6 +35,32 @@ public static class GlobalAuthServiceCollectionExtensions
 		}
 
 		var authority = authorityUri.ToString().TrimEnd('/');
+
+		if (!Uri.TryCreate(
+				options.SessionValidationEndpoint,
+				UriKind.Relative,
+				out _))
+		{
+			throw new InvalidOperationException(
+				"Session validation endpoint must be a relative URL.");
+		}
+
+		services.AddHttpClient("GlobalAuth", httpClient =>
+		{
+			httpClient.BaseAddress = new Uri(authority + "/");
+		});
+
+		services.AddTransient<SessionValidationClient>(serviceProvider =>
+		{
+			var httpClientFactory =
+				serviceProvider.GetRequiredService<IHttpClientFactory>();
+
+			var httpClient = httpClientFactory.CreateClient("GlobalAuth");
+
+			return new SessionValidationClient(
+				httpClient,
+				options.SessionValidationEndpoint);
+		});
 
 		services.AddAuthentication(
 			JwtBearerDefaults.AuthenticationScheme)
@@ -79,80 +106,130 @@ public static class GlobalAuthServiceCollectionExtensions
 						RoleClaimType = "role"
 					};
 
+
 				jwtOptions.Events = new JwtBearerEvents
 				{
-					OnTokenValidated = context =>
+					OnTokenValidated = async context =>
 					{
 						var principal = context.Principal;
 
-						if (principal == null)
+						if (principal is null)
 						{
 							context.Fail("Missing token principal.");
-							return Task.CompletedTask;
+							return;
 						}
 
+						// Required claims for USER access tokens.
 						string[] requiredClaims =
 						{
-							"sub",
-							"jti",
-							"sid",
-							"principal_type",
-							"token_type"
-						};
+			"sub",
+			"jti",
+			"sid",
+			"principal_type",
+			"token_type",
+			"client_id"
+		};
 
 						foreach (var claimType in requiredClaims)
 						{
-							var claims = principal
-								.FindAll(claimType)
-								.ToArray();
+							var claims = principal.FindAll(claimType).ToArray();
 
 							if (claims.Length != 1 ||
 								string.IsNullOrWhiteSpace(claims[0].Value))
 							{
-								context.Fail(
-									$"Invalid or missing {claimType} claim.");
-
-								return Task.CompletedTask;
+								context.Fail($"Invalid or missing {claimType} claim.");
+								return;
 							}
 						}
 
-						var sessionId =
-							principal.FindFirst("sid")!.Value;
+						var principalType = principal.FindFirst("principal_type")!.Value;
+						var tokenType = principal.FindFirst("token_type")!.Value;
+						var sessionId = principal.FindFirst("sid")!.Value;
 
-						if (!Guid.TryParse(sessionId, out _))
-						{
-							context.Fail("Invalid Session ID.");
-							return Task.CompletedTask;
-						}
-
-						var principalType =
-							principal.FindFirst("principal_type")!.Value;
-
+						// This library is intended for user applications.
 						if (!string.Equals(
 								principalType,
 								"USER",
-								StringComparison.OrdinalIgnoreCase) &&
-							!string.Equals(
-								principalType,
-								"CLIENT",
 								StringComparison.OrdinalIgnoreCase))
 						{
-							context.Fail("Invalid principal type.");
-							return Task.CompletedTask;
+							context.Fail("Only USER tokens are supported.");
+							return;
 						}
-
-						var tokenType =
-							principal.FindFirst("token_type")!.Value;
 
 						if (tokenType != "access")
 						{
 							context.Fail("Invalid token type.");
-							return Task.CompletedTask;
+							return;
 						}
 
-						return Task.CompletedTask;
+						if (!Guid.TryParse(sessionId, out _))
+						{
+							context.Fail("Invalid session ID.");
+							return;
+						}
+
+						// Extract the original bearer token.
+						var authorizationHeader =
+							context.Request.Headers.Authorization.ToString();
+
+						const string bearerPrefix = "Bearer ";
+
+						if (!authorizationHeader.StartsWith(
+								bearerPrefix,
+								StringComparison.OrdinalIgnoreCase))
+						{
+							context.Fail("Bearer token is missing.");
+							return;
+						}
+
+						var accessToken =
+							authorizationHeader[bearerPrefix.Length..].Trim();
+
+						if (string.IsNullOrWhiteSpace(accessToken))
+						{
+							context.Fail("Bearer token is missing.");
+							return;
+						}
+
+						// Ask GlobalAuth to validate the session.
+						var sessionValidator = context.HttpContext.RequestServices
+							.GetRequiredService<SessionValidationClient>();
+
+						var loggerFactory = context.HttpContext.RequestServices
+							.GetRequiredService<ILoggerFactory>();
+
+						var logger = loggerFactory.CreateLogger(
+							"GlobalAuth.Client.SessionValidation");
+
+						try
+						{
+							var isSessionValid =
+								await sessionValidator.ValidateSessionAsync(
+									accessToken,
+									context.HttpContext.RequestAborted);
+
+							if (!isSessionValid)
+							{
+								context.Fail("User session is invalid or expired.");
+								return;
+							}
+						}
+						catch (OperationCanceledException)
+							when (context.HttpContext.RequestAborted.IsCancellationRequested)
+						{
+							throw;
+						}
+						catch (Exception exception)
+						{
+							logger.LogError(
+								exception,
+								"GlobalAuth session validation could not be completed.");
+
+							context.Fail("Session validation could not be completed.");
+						}
 					}
 				};
+
 			});
 
 		services.AddAuthorization();
