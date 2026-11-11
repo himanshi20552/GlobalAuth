@@ -31,14 +31,12 @@ public sealed class TokenController : ControllerBase
 		}
 
 		var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-		var userAgent = Request.Headers.UserAgent.ToString();
 
 		try
 		{
 			var result = await _tokenRefreshService.RefreshAsync(
 				request.RefreshToken,
 				ipAddress: ipAddress,
-				userAgent: userAgent,
 				cancellationToken: cancellationToken);
 
 			return Ok(result);
