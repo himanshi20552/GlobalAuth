@@ -46,7 +46,7 @@ public sealed class ClientRefreshTokenRepository
 
 	public async Task<int> RotateAsync(byte[] presentedTokenHash,Guid newClientRefreshTokenId,
 		byte[] newTokenHash,
-		DateTime newExpiresAtUtc,string jti,DateTime accessTokenExpiresAtUtc,
+		DateTime newExpiresAtUtc,string? jti,DateTime? accessTokenExpiresAtUtc,
 		string? ipAddress,
 		CancellationToken cancellationToken = default)
 	{
