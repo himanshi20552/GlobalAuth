@@ -2,6 +2,7 @@
 public sealed class ClientRefreshTokenContext
 {
 	public string ClientID { get; set; } = string.Empty;
+	public Guid FamilyID { get; set; }
 	public DateTime TokenExpiresAtUtc { get; set; }
 	public DateTime? UsedAtUtc { get; set; }
 	public DateTime? RevokedAtUtc { get; set; }

@@ -75,7 +75,7 @@ public sealed class ClientRefreshTokenRepository
 		CancellationToken cancellationToken = default)
 	{
 		const string sql = """
-        select rt.ClientID, rt.ExpiresAtUtc AS TokenExpiresAtUtc,rt.UsedAtUtc,
+        select rt.ClientID, rt.FamilyID,rt.ExpiresAtUtc AS TokenExpiresAtUtc,rt.UsedAtUtc,
             rt.RevokedAtUtc,c.IsActive AS ClientIsActive
         from auth.AuthClientRefreshTokens rt
         inner join auth.ClientCredentials c
@@ -88,4 +88,17 @@ public sealed class ClientRefreshTokenRepository
 			new CommandDefinition(sql,new { TokenHash = tokenHash },cancellationToken: cancellationToken));
 	}
 
+	public async Task RevokeFamilyAsync(string clientId,Guid familyId,CancellationToken cancellationToken = default)
+	{
+		const string sql = """
+        update auth.AuthClientRefreshTokens
+        set RevokedAtUtc = COALESCE(RevokedAtUtc, SYSUTCDATETIME())
+        where ClientID = @ClientID
+          and FamilyID = @FamilyID;
+        """;
+		await using var conn = _connFactory.CreateConnection();
+		await conn.OpenAsync(cancellationToken);
+		await conn.ExecuteAsync(new CommandDefinition(sql,new {ClientID = clientId,FamilyID = familyId},
+				cancellationToken: cancellationToken));
+	}
 }
