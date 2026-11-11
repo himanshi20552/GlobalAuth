@@ -15,7 +15,7 @@ public sealed class AuthTokenIssuanceAuditRepository
 	{
 		const string sql = """
 			    Insert into auth.AuthTokenIssuanceAudit ( Jti,PrincipalType,SubjectID, SessionID, IssuanceType, IssuedAtUtc,IpAddress)
-						Values( @Jti,@PricipalType,@SubjectID, @SessionID , @IssuanceType, @IssuedAtUtc, @IpAddress);
+						Values( @Jti,@PrincipalType,@SubjectID, @SessionID , @IssuanceType, @IssuedAtUtc, @IpAddress);
 			""";
 
 		await using var conn = _connFactory.CreateConnection();
