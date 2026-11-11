@@ -26,8 +26,9 @@ public sealed class TokenRefreshService
 		ITokenService tokenService,
 		ClientPermissionRepository clientPermissionRepository,
 		SessionService sessionService,
-		IUserAuthorizationProvider? userAuthorizationProvider,
-		IOptions<RefreshTokenOptions> refreshTokenOptions)
+		IOptions<RefreshTokenOptions> refreshTokenOptions,
+		IUserAuthorizationProvider? userAuthorizationProvider=null
+		)
 	{
 		_userRefreshTokenRepository = userRefreshTokenRepository;
 		_clientRefreshTokenRepository = clientRefreshTokenRepository;

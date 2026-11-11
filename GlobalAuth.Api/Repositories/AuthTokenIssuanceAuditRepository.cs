@@ -14,8 +14,8 @@ public sealed class AuthTokenIssuanceAuditRepository
 	public async Task CreateAsync(AuthTokenIssuanceAudit audit,CancellationToken cancellationToken = default)
 	{
 		const string sql = """
-			    Insert into auth.AuthTokenIssuanceAudit ( Jti,PrincipalType,SubjectID, SessionID, IssuanceType, IssuedAtUtc,IpAddress)
-						Values( @Jti,@PrincipalType,@SubjectID, @SessionID , @IssuanceType, @IssuedAtUtc, @IpAddress);
+			    Insert into auth.AuthTokenIssuanceAudit ( Jti,PrincipalType,SubjectID, SessionID, IssuanceType, IssuedAtUtc,ExpiresAtUtc,IpAddress)
+						Values( @Jti,@PrincipalType,@SubjectID, @SessionID , @IssuanceType, @IssuedAtUtc,@ExpiresAtUtc, @IpAddress);
 			""";
 
 		await using var conn = _connFactory.CreateConnection();
