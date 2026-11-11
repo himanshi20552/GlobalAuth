@@ -2,6 +2,7 @@
 using System.Data;
 using Dapper;
 using GlobalAuth.Api.Data;
+using GlobalAuth.Api.Models;
 
 namespace GlobalAuth.Api.Repositories;
 
@@ -69,4 +70,22 @@ public sealed class ClientRefreshTokenRepository
 
 		return await conn.ExecuteScalarAsync<int>(command);
 	}
+
+	public async Task<ClientRefreshTokenContext?> GetContextByTokenHashAsync(byte[] tokenHash,
+		CancellationToken cancellationToken = default)
+	{
+		const string sql = """
+        select rt.ClientID, rt.ExpiresAtUtc AS TokenExpiresAtUtc,rt.UsedAtUtc,
+            rt.RevokedAtUtc,c.IsActive AS ClientIsActive
+        from auth.AuthClientRefreshTokens rt
+        inner join auth.ClientCredentials c
+        on c.ClientID = rt.ClientID
+        where rt.TokenHash = @TokenHash;
+        """;
+		await using var conn = _connFactory.CreateConnection();
+		await conn.OpenAsync(cancellationToken);
+		return await conn.QuerySingleOrDefaultAsync<ClientRefreshTokenContext>(
+			new CommandDefinition(sql,new { TokenHash = tokenHash },cancellationToken: cancellationToken));
+	}
+
 }
