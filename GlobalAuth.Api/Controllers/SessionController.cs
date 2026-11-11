@@ -120,4 +120,40 @@ public sealed class SessionController : ControllerBase
 
 		return NoContent();
 	}
+
+	[HttpPost("validate")]
+	public async Task<IActionResult> ValidateSession(
+		CancellationToken cancellationToken)
+	{
+		var subjectId = User.FindFirst("sub")?.Value;
+		var principalType = User.FindFirst("principal_type")?.Value;
+		var applicationId = User.FindFirst("client_id")?.Value;
+		var sessionIdValue = User.FindFirst("sid")?.Value;
+
+		// Only USER tokens have sessions.
+		if (principalType != "USER")
+			return Forbid();
+
+		if (string.IsNullOrWhiteSpace(subjectId) ||
+			string.IsNullOrWhiteSpace(applicationId) ||
+			!Guid.TryParse(sessionIdValue, out var sessionId))
+		{
+			return Unauthorized(new
+			{
+				message = "Required user session information is missing."
+			});
+		}
+
+		var isValid = await _sessionService.IsSessionValidAsync(
+			sessionId,
+			subjectId,
+			applicationId,
+			cancellationToken);
+
+		return Ok(new
+		{
+			IsValid = isValid
+		});
+	}
+
 }

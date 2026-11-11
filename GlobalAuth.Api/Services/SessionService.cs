@@ -135,4 +135,19 @@ public sealed class SessionService
 			revocationSource,
 			cancellationToken);
 	}
+
+	public async Task<bool> IsSessionValidAsync(Guid sessionId,string subjectId,string applicationId,
+		CancellationToken cancellationToken = default)
+	{
+		if (sessionId == Guid.Empty)
+			throw new ArgumentException("Session ID is required.");
+		if (string.IsNullOrWhiteSpace(subjectId))
+			throw new ArgumentException("User ID is required.");
+		if (string.IsNullOrWhiteSpace(applicationId))
+			throw new ArgumentException("Application ID is required.");
+		return await _authSessionRepository.IsSessionValidAsync(sessionId,subjectId,
+			applicationId,
+			cancellationToken);
+	}
+
 }

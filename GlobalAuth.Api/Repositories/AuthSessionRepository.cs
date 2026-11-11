@@ -114,6 +114,61 @@ namespace GlobalAuth.Api.Repositories
 			var affectedRows = await conn.ExecuteAsync(command);
 			return affectedRows == 1;
 		}
-	
+
+		public async Task<bool> IsSessionValidAsync(Guid sessionId,string subjectId,string applicationId,
+			CancellationToken cancellationToken = default)
+		{
+			const string sql = """
+        SET NOCOUNT ON;
+
+        DECLARE @Now DATETIME2 = SYSUTCDATETIME();
+
+        -- Mark the session expired if its idle timeout has elapsed.
+        UPDATE s
+        SET
+            StatusID = 3
+        FROM auth.AuthSessions s
+        INNER JOIN auth.Applications a
+            ON a.ApplicationID = s.ApplicationID
+        WHERE s.SessionID = @SessionID
+          AND s.SubjectID = @SubjectID
+          AND s.ApplicationID = @ApplicationID
+          AND s.StatusID = 1
+          AND s.RevokedAtUtc IS NULL
+          AND a.IsActive = 1
+          AND s.LastActivityAtUtc <=
+              DATEADD(MINUTE, -a.IdleTimeoutMinutes, @Now);
+
+        -- Return whether the session is still valid.
+        SELECT CAST(
+            CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM auth.AuthSessions s
+                INNER JOIN auth.Applications a
+                    ON a.ApplicationID = s.ApplicationID
+                WHERE s.SessionID = @SessionID
+                  AND s.SubjectID = @SubjectID
+                  AND s.ApplicationID = @ApplicationID
+                  AND s.StatusID = 1
+                  AND s.RevokedAtUtc IS NULL
+                  AND a.IsActive = 1
+                  AND s.LastActivityAtUtc >
+                      DATEADD(MINUTE, -a.IdleTimeoutMinutes, @Now)
+            )
+            THEN 1
+            ELSE 0
+            END AS BIT);
+        """;
+
+			await using var conn = _connFactory.CreateConnection();
+			await conn.OpenAsync(cancellationToken);
+
+			var command = new CommandDefinition(sql,new{SessionID = sessionId,SubjectID = subjectId,ApplicationID = applicationId
+				},cancellationToken: cancellationToken);
+			return await conn.ExecuteScalarAsync<bool>(command);
+		}
+
+
 	}
 }
