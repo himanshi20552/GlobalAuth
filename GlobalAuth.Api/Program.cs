@@ -127,58 +127,75 @@ builder.Services
 
 			jwtOptions.Events = new JwtBearerEvents
 			{
+
 				OnTokenValidated = context =>
 				{
 					var principal = context.Principal;
+
 					if (principal is null)
 					{
 						context.Fail("Missing token principal.");
 						return Task.CompletedTask;
 					}
+
+					// Claims required for both USER and CLIENT tokens.
 					string[] requiredClaims =
 					{
-						"sub",
-						"jti",
-						"sid",
-						"principal_type",
-						"token_type"
-					};
+		"sub",
+		"jti",
+		"principal_type",
+		"token_type",
+		"client_id"
+	};
 
 					foreach (var claimType in requiredClaims)
 					{
 						var claims = principal.FindAll(claimType).ToArray();
 
-						if (claims.Length != 1 || string.IsNullOrWhiteSpace(claims[0].Value))
+						if (claims.Length != 1 ||
+							string.IsNullOrWhiteSpace(claims[0].Value))
 						{
 							context.Fail($"Invalid or missing {claimType} claim.");
 							return Task.CompletedTask;
 						}
 					}
 
-					if (!Guid.TryParse(principal.FindFirst("sid")!.Value,out _))
-					{
-						context.Fail("Invalid session ID.");
-						return Task.CompletedTask;
-					}
+					var principalType = principal.FindFirst("principal_type")!.Value;
+					var tokenType = principal.FindFirst("token_type")!.Value;
 
-					var principalType =principal.FindFirst("principal_type")!.Value;
-
-					if (principalType != "USER" &&
-						principalType != "CLIENT")
+					if (principalType != "USER" && principalType != "CLIENT")
 					{
 						context.Fail("Invalid principal type.");
 						return Task.CompletedTask;
 					}
-
-					var tokenType =principal.FindFirst("token_type")!.Value;
 
 					if (tokenType != "access")
 					{
 						context.Fail("Invalid token type.");
 						return Task.CompletedTask;
 					}
+
+					// Only USER tokens should contain a session ID.
+					var sessionClaims = principal.FindAll("sid").ToArray();
+
+					if (principalType == "USER")
+					{
+						if (sessionClaims.Length != 1 ||
+							!Guid.TryParse(sessionClaims[0].Value, out _))
+						{
+							context.Fail("Invalid or missing session ID.");
+							return Task.CompletedTask;
+						}
+					}
+					else if (sessionClaims.Length != 0)
+					{
+						context.Fail("CLIENT tokens must not contain a session ID.");
+						return Task.CompletedTask;
+					}
+
 					return Task.CompletedTask;
 				}
+
 			};
 		});
 builder.Services.AddAuthorization();
