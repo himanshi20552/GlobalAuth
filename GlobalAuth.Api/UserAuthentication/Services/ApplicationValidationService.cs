@@ -27,11 +27,10 @@ public class ApplicationValidationService : IApplicationValidationService
 		var application = await _applicationRepository
 			.GetByApplicationIdAsync(applicationId, cancellationToken);
 
-		if (application == null || !application.IsActive)
+		if (application == null || !application.IsActive|| string.IsNullOrWhiteSpace(application.HashKey))
 		{
 			return false;
 		}
-
 		return string.Equals(
 			application.HashKey,
 			hashKey,

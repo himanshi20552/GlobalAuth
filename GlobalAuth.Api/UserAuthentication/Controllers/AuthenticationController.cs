@@ -1,65 +1,120 @@
 ﻿using ApplicationAuthentication.Authentication.Interfaces;
 using ApplicationAuthentication.DTOs.Requests;
-using ApplicationAuthentication.DTOs.Responses;
-using Microsoft.AspNetCore.Mvc;
 using ApplicationAuthentication.Services.Interfaces;
+
+using GlobalAuth.Api.Constants;
+using GlobalAuth.Api.Contracts;
 using GlobalAuth.Api.Services;
+
+using Microsoft.AspNetCore.Mvc;
 
 namespace ApplicationAuthentication.Controllers;
 
-[ApiController] //controller declaration
-[Route("api/[controller]")] //  /api/Authentication
+[ApiController]
+[Route("api/[controller]")]
 public class AuthenticationController : ControllerBase
 {
 	private readonly IAuthenticationService _authenticationService;
 	private readonly IApplicationValidationService _applicationValidationService;
 	private readonly IUserAuthorizationProvider _userAuthorizationProvider;
 	private readonly IUserApplicationAccessService _userApplicationAccessService;
-	public AuthenticationController(IAuthenticationService authenticationService,
+	private readonly ITokenIssuanceService _tokenIssuanceService;
+
+	public AuthenticationController(
+		IAuthenticationService authenticationService,
 		IApplicationValidationService applicationValidationService,
 		IUserAuthorizationProvider userAuthorizationProvider,
-		IUserApplicationAccessService userApplicationAccessService
-		)
+		IUserApplicationAccessService userApplicationAccessService,
+		ITokenIssuanceService tokenIssuanceService)
 	{
 		_authenticationService = authenticationService;
 		_applicationValidationService = applicationValidationService;
 		_userAuthorizationProvider = userAuthorizationProvider;
 		_userApplicationAccessService = userApplicationAccessService;
+		_tokenIssuanceService = tokenIssuanceService;
 	}
-	[HttpPost("login")] //HTTP POST endpoint ( POST/api/Authentication/login)
-	public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken) { //request body 
-		if (string.IsNullOrWhiteSpace(request.ApplicationId) || string.IsNullOrWhiteSpace(request.HashKey) ||
-			string.IsNullOrWhiteSpace(request.UserId) || string.IsNullOrWhiteSpace(request.Password))
+
+	[HttpPost("login")]
+	public async Task<IActionResult> Login(
+		[FromBody] LoginRequestDto request,
+		CancellationToken cancellationToken)
+	{
+		if (string.IsNullOrWhiteSpace(request.ApplicationId) ||
+			string.IsNullOrWhiteSpace(request.HashKey) ||
+			string.IsNullOrWhiteSpace(request.UserId) ||
+			string.IsNullOrWhiteSpace(request.Password))
 		{
-			return BadRequest("Credentials Rquired");
+			return BadRequest("Credentials Required");
 		}
-		var isApplicationValid = await _applicationValidationService.ValidateApplicationAsync(request.ApplicationId, request.HashKey,cancellationToken);
+
+		// 1. Validate consuming application
+		var isApplicationValid =
+			await _applicationValidationService.ValidateApplicationAsync(
+				request.ApplicationId,
+				request.HashKey,
+				cancellationToken);
+
 		if (!isApplicationValid)
 		{
 			return Unauthorized("Invalid Application credentials");
 		}
-		//calling the authentication service
-		var result = await _authenticationService.AuthenticateUserAsync(request.UserId, request.Password,cancellationToken);
-		if (result == null) {
-			return Unauthorized("Invalid User ID or Passowrd");
+
+		// 2. Authenticate user
+		var result = await _authenticationService.AuthenticateUserAsync(
+			request.UserId,
+			request.Password,
+			cancellationToken);
+
+		if (result == null)
+		{
+			return Unauthorized("Invalid User ID or Password");
 		}
-		var isUserAllowed = await _userApplicationAccessService.IsUserAllowedAsync(result.UserId, request.ApplicationId,cancellationToken);
+
+		// 3. Check user application access
+		var isUserAllowed =
+			await _userApplicationAccessService.IsUserAllowedAsync(
+				result.UserId,
+				request.ApplicationId,
+				cancellationToken);
+
 		if (!isUserAllowed)
 		{
-			return StatusCode(StatusCodes.Status403Forbidden, "You are not authorized to access this");
+			return StatusCode(
+				StatusCodes.Status403Forbidden,
+				"You are not authorized to access this application");
 		}
-		var authorization = await _userAuthorizationProvider.GetCurrentAuthorizationAsync(result.UserId, request.ApplicationId, cancellationToken);
+
+		// 4. Retrieve current roles and permissions
+		var authorization =
+			await _userAuthorizationProvider.GetCurrentAuthorizationAsync(
+				result.UserId,
+				request.ApplicationId,
+				cancellationToken);
+
 		if (authorization == null)
 		{
-			return StatusCode(StatusCodes.Status403Forbidden, "Employee authorization info Unavailable");
+			return StatusCode(
+				StatusCodes.Status403Forbidden,
+				"Employee authorization information unavailable");
 		}
-		var response = new LoginResponseDto
-		{
-            UserId = result.UserId, // returns collection of group and permission entities
-            UserName = result.UserName,
-			Groups = authorization.Roles,
-			Permissions = authorization.Permissions
-		};
-		return Ok(response);
+
+		// 5. Generate access and refresh tokens
+		var tokens = await _tokenIssuanceService.IssueAsync(
+			new TokenIssuanceRequest
+			{
+				PrincipalType = GlobalAuthPrincipalTypes.User,
+				SubjectId = result.UserId,
+				ApplicationId = request.ApplicationId,
+				Roles = authorization.Roles,
+				Permissions = authorization.Permissions,
+
+				// Audit metadata
+				IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+			},
+			cancellationToken);
+
+		// 6. Return login response
+
+		return Ok(tokens);
 	}
 }

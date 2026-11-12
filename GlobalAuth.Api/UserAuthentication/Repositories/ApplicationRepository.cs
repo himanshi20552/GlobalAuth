@@ -19,9 +19,9 @@ public class ApplicationRepository : IApplicationRepository
 		CancellationToken cancellationToken = default)
 	{
 		const string sql = """
-            SELECT ApplicationId, ApplicationName, HashKey, IsActive, CreatedAt
-            FROM Applications
-            WHERE ApplicationId = @ApplicationId;
+            SELECT ApplicationID, HashKey, IsActive
+            FROM auth.Applications
+            WHERE ApplicationID = @ApplicationId;
             """;
 
 		var command = new CommandDefinition(

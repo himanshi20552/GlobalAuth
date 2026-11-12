@@ -7,6 +7,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
+using ApplicationAuthentication.Authentication.Interfaces;
+using ApplicationAuthentication.Repositories.Interfaces;
+using ApplicationAuthentication.Services.Interfaces;
+using UserAuthRepositories = ApplicationAuthentication.Repositories;
+using UserAuthServices = ApplicationAuthentication.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +78,24 @@ builder.Services.AddScoped<ClientCredentialRepository>();
 builder.Services.AddScoped<ClientPermissionRepository>();
 builder.Services.AddScoped<ApplicationRepository>();
 builder.Services.AddScoped<ClientRefreshTokenRepository>();
+
+// User authentication repositories
+builder.Services.AddScoped<IUserRepository, UserAuthRepositories.UserRepository>();
+builder.Services.AddScoped<IGroupRepository, UserAuthRepositories.GroupRepository>();
+builder.Services.AddScoped<IPermissionRepository, UserAuthRepositories.PermissionRepository>();
+builder.Services.AddScoped<IUserApplicationRepository, UserAuthRepositories.UserApplicationRepository>();
+
+builder.Services.AddScoped<IApplicationRepository, UserAuthRepositories.ApplicationRepository>();
+
+// User authentication services
+builder.Services.AddScoped<IPasswordHashingService, UserAuthServices.PasswordHashingService>();
+builder.Services.AddScoped<IAuthenticationService, UserAuthServices.AuthenticationService>();
+
+builder.Services.AddScoped<IApplicationValidationService, UserAuthServices.ApplicationValidationService>();
+builder.Services.AddScoped<IUserApplicationAccessService, UserAuthServices.UserApplicationAccessService>();
+
+// Shared authorization provider
+builder.Services.AddScoped<GlobalAuth.Api.Services.IUserAuthorizationProvider, UserAuthServices.UserAuthorizationProvider>();
 // rsa signing key provider
 builder.Services.AddSingleton<ISigningKeyProvider, RsaFileSigningKeyProvider>();
 
