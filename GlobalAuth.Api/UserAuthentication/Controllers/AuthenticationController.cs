@@ -33,17 +33,17 @@ public class AuthenticationController : ControllerBase
 		{
 			return BadRequest("Credentials Rquired");
 		}
-		var isApplicationValid = await _applicationValidationService.ValidateApplicationAsync(request.ApplicationId, request.HashKey);
+		var isApplicationValid = await _applicationValidationService.ValidateApplicationAsync(request.ApplicationId, request.HashKey,cancellationToken);
 		if (!isApplicationValid)
 		{
 			return Unauthorized("Invalid Application credentials");
 		}
 		//calling the authentication service
-		var result = await _authenticationService.AuthenticateUserAsync(request.UserId, request.Password);
+		var result = await _authenticationService.AuthenticateUserAsync(request.UserId, request.Password,cancellationToken);
 		if (result == null) {
 			return Unauthorized("Invalid User ID or Passowrd");
 		}
-		var isUserAllowed = await _userApplicationAccessService.IsUserAllowedAsync(result.UserId, request.ApplicationId);
+		var isUserAllowed = await _userApplicationAccessService.IsUserAllowedAsync(result.UserId, request.ApplicationId,cancellationToken);
 		if (!isUserAllowed)
 		{
 			return StatusCode(StatusCodes.Status403Forbidden, "You are not authorized to access this");
