@@ -99,32 +99,40 @@ namespace ApplicationAuthentication.Repositories
             FROM auth.AuthSessions WITH (UPDLOCK, HOLDLOCK)
             WHERE SubjectID = @UserID;
 
-            -- 3. Ensure the current session is still active.
-            IF NOT EXISTS
-            (
-                SELECT 1
-                FROM auth.AuthSessions s
-                INNER JOIN @SessionIds ids
-                    ON ids.SessionID = s.SessionID
-                WHERE s.SessionID = @CurrentSessionID
-                  AND s.SubjectID = @UserID
-                  AND s.ApplicationID = @ApplicationID
-                  AND s.StatusID = 1
-                  AND s.RevokedAtUtc IS NULL
-            )
-            BEGIN
-                ROLLBACK TRANSACTION;
-                SELECT CAST(0 AS BIT);
-                RETURN;
-            END;
+           -- 3. Ensure the current session is active
+        -- and has not exceeded its application's idle timeout.
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM auth.AuthSessions s
+            INNER JOIN auth.Applications a
+                ON a.ApplicationID = s.ApplicationID
+            INNER JOIN @SessionIds ids
+                ON ids.SessionID = s.SessionID
+            WHERE s.SessionID = @CurrentSessionID
+              AND s.SubjectID = @UserID
+              AND s.ApplicationID = @ApplicationID
+              AND s.StatusID = 1
+              AND s.RevokedAtUtc IS NULL
+              AND a.IsActive = 1
+              AND s.LastActivityAtUtc >
+                  DATEADD(MINUTE, -a.IdleTimeoutMinutes, @NowUtc)
+        )
+        BEGIN
+            ROLLBACK TRANSACTION;
+            SELECT CAST(0 AS BIT);
+            RETURN;
+        END;
 
             -- 4. Update the password only if the old hash
             -- still matches the one verified by the service.
-            UPDATE dbo.Users
-            SET PasswordHash = @NewPasswordHash
-            WHERE UserId = @UserID
-              AND CONVERT(VARBINARY(MAX), PasswordHash) =
-                  CONVERT(VARBINARY(MAX), @CurrentPasswordHash);
+           UPDATE dbo.Users
+        SET PasswordHash = @NewPasswordHash
+        WHERE UserId = @UserID
+          AND IsActive = 1
+          AND IsBlocked = 0
+          AND CONVERT(VARBINARY(MAX), PasswordHash) =
+              CONVERT(VARBINARY(MAX), @CurrentPasswordHash);
 
             IF @@ROWCOUNT <> 1
             BEGIN
