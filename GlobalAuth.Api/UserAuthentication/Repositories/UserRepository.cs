@@ -21,7 +21,7 @@ namespace ApplicationAuthentication.Repositories
 		{
 			const string sql = """
                 SELECT UserId, UserName, PasswordHash, IsActive, IsBlocked, CreatedAt
-                FROM Users
+                FROM dbo.Users
                 WHERE UserId = @UserId;
                 """;
 
@@ -41,7 +41,7 @@ namespace ApplicationAuthentication.Repositories
 			CancellationToken cancellationToken = default)
 		{
 			const string sql = """
-                UPDATE Users
+                UPDATE dbo.Users
                 SET PasswordHash = @NewPasswordHash
                 WHERE UserId = @UserId;
                 """;

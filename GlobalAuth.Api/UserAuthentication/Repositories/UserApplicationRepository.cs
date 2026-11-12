@@ -21,7 +21,7 @@ public class UserApplicationRepository : IUserApplicationRepository
 	{
 		const string sql = """
             SELECT COUNT(1)
-            FROM UserApplications
+            FROM dbo.UserApplications
             WHERE UserId = @UserId
                 AND ApplicationId = @ApplicationId
                 AND IsActive = 1;

@@ -29,14 +29,14 @@ public class PermissionRepository : IPermissionRepository
                 p.Description,
                 p.IsActive,
                 p.CreatedAt
-            FROM Permissions p
-            INNER JOIN GroupPermissions gp
+            FROM dbo.Permissions p
+            INNER JOIN dbo.GroupPermissions gp
                 ON p.PermissionId = gp.PermissionId
                 AND p.ApplicationId = gp.ApplicationId
-            INNER JOIN Groups g
+            INNER JOIN dbo.Groups g
                 ON gp.GroupId = g.GroupId
                 AND gp.ApplicationId = g.ApplicationId
-            INNER JOIN UserGroups ug
+            INNER JOIN dbo.UserGroups ug
                 ON g.GroupId = ug.GroupId
                 AND g.ApplicationId = ug.ApplicationId
             WHERE ug.UserId = @UserId

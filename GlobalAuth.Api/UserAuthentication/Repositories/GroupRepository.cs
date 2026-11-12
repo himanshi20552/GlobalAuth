@@ -28,8 +28,8 @@ public class GroupRepository : IGroupRepository
                 g.Description,
                 g.IsActive,
                 g.CreatedAt
-            FROM Groups g
-            INNER JOIN UserGroups ug
+            FROM dbo.Groups g
+            INNER JOIN dbo.UserGroups ug
                 ON g.GroupId = ug.GroupId
                 AND g.ApplicationId = ug.ApplicationId
             WHERE ug.UserId = @UserId
