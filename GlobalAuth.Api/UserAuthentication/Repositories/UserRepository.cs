@@ -97,8 +97,7 @@ namespace ApplicationAuthentication.Repositories
             INSERT INTO @SessionIds (SessionID)
             SELECT SessionID
             FROM auth.AuthSessions WITH (UPDLOCK, HOLDLOCK)
-            WHERE SubjectID = @UserID
-              AND ApplicationID = @ApplicationID;
+            WHERE SubjectID = @UserID;
 
             -- 3. Ensure the current session is still active.
             IF NOT EXISTS
@@ -108,6 +107,8 @@ namespace ApplicationAuthentication.Repositories
                 INNER JOIN @SessionIds ids
                     ON ids.SessionID = s.SessionID
                 WHERE s.SessionID = @CurrentSessionID
+                  AND s.SubjectID = @UserID
+                  AND s.ApplicationID = @ApplicationID
                   AND s.StatusID = 1
                   AND s.RevokedAtUtc IS NULL
             )
@@ -132,7 +133,7 @@ namespace ApplicationAuthentication.Repositories
                 RETURN;
             END;
 
-            -- 5. Revoke all active sessions in this application.
+            -- 5. Revoke all active sessions across all application.
             UPDATE s
             SET
                 StatusID = 2,
@@ -145,7 +146,7 @@ namespace ApplicationAuthentication.Repositories
               AND s.RevokedAtUtc IS NULL;
 
             -- 6. Revoke refresh tokens belonging to
-            -- all sessions in this application.
+            -- all sessions in all applications.
             UPDATE rt
             SET RevokedAtUtc = @NowUtc
             FROM auth.AuthRefreshTokens rt

@@ -1,8 +1,8 @@
 ﻿using ApplicationAuthentication.Authentication.Interfaces;
 using ApplicationAuthentication.DTOs.Requests;
 using ApplicationAuthentication.Services.Interfaces;
-
 using GlobalAuth.Api.Constants;
+using Microsoft.AspNetCore.Authorization;
 using GlobalAuth.Api.Contracts;
 using GlobalAuth.Api.Services;
 
@@ -19,18 +19,21 @@ public class AuthenticationController : ControllerBase
 	private readonly IUserAuthorizationProvider _userAuthorizationProvider;
 	private readonly IUserApplicationAccessService _userApplicationAccessService;
 	private readonly ITokenIssuanceService _tokenIssuanceService;
+	private readonly IPasswordChangeService _passwordChangeService;
 
 	public AuthenticationController(
 		IAuthenticationService authenticationService,
 		IApplicationValidationService applicationValidationService,
 		IUserAuthorizationProvider userAuthorizationProvider,
 		IUserApplicationAccessService userApplicationAccessService,
+		IPasswordChangeService passwordChangeService,
 		ITokenIssuanceService tokenIssuanceService)
 	{
 		_authenticationService = authenticationService;
 		_applicationValidationService = applicationValidationService;
 		_userAuthorizationProvider = userAuthorizationProvider;
 		_userApplicationAccessService = userApplicationAccessService;
+		_passwordChangeService = passwordChangeService;
 		_tokenIssuanceService = tokenIssuanceService;
 	}
 
@@ -116,5 +119,74 @@ public class AuthenticationController : ControllerBase
 		// 6. Return login response
 
 		return Ok(tokens);
+	}
+	[HttpPost("change-password")]
+	[Authorize]
+	public async Task<IActionResult> ChangePassword(
+	[FromBody] ChangePasswordRequestDto request,
+	CancellationToken cancellationToken)
+	{
+		// 1. Only USER principals can change passwords.
+		var principalType =
+			User.FindFirst(GlobalAuthClaimTypes.PrincipalType)?.Value;
+
+		if (principalType != GlobalAuthPrincipalTypes.User)
+			return Forbid();
+
+		// 2. Extract identity and application context from JWT.
+		var userId = User.FindFirst("sub")?.Value;
+
+		var applicationId =
+			User.FindFirst(GlobalAuthClaimTypes.ClientId)?.Value;
+
+		var sessionIdValue =
+			User.FindFirst(GlobalAuthClaimTypes.SessionId)?.Value;
+
+		if (string.IsNullOrWhiteSpace(userId) ||
+			string.IsNullOrWhiteSpace(applicationId) ||
+			!Guid.TryParse(sessionIdValue, out var sessionId))
+		{
+			return Unauthorized();
+		}
+
+		// 3. Delegate password change to the service.
+		var result = await _passwordChangeService.ChangePasswordAsync(
+			userId,
+			applicationId,
+			sessionId,
+			request.CurrentPassword,
+			request.NewPassword,
+			cancellationToken);
+
+		// 4. Map service results to HTTP responses.
+		switch (result)
+		{
+			case PasswordChangeResult.Success:
+				return NoContent();
+
+			case PasswordChangeResult.InvalidCurrentPassword:
+				return BadRequest(new
+				{
+					message = "Current password is incorrect."
+				});
+
+			case PasswordChangeResult.SameAsCurrentPassword:
+				return BadRequest(new
+				{
+					message = "New password must be different from the current password."
+				});
+
+			case PasswordChangeResult.UserUnavailable:
+				return Forbid();
+
+			case PasswordChangeResult.StateChanged:
+				return Conflict(new
+				{
+					message = "Your account or session state has changed. Please sign in again."
+				});
+
+			default:
+				return StatusCode(StatusCodes.Status500InternalServerError);
+		}
 	}
 }
