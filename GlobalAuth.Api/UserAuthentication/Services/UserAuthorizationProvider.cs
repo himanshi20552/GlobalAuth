@@ -1,6 +1,7 @@
-﻿using ApplicationAuthentication.Contracts;
-using ApplicationAuthentication.Repositories.Interfaces;
+﻿using ApplicationAuthentication.Repositories.Interfaces;
 using ApplicationAuthentication.Services.Interfaces;
+using GlobalAuth.Api.Contracts;
+using GlobalAuth.Api.Services;
 
 namespace ApplicationAuthentication.Services;
 
@@ -11,39 +12,52 @@ public class UserAuthorizationProvider : IUserAuthorizationProvider
 	private readonly IUserRepository _userRepository;
 	private readonly IUserApplicationAccessService _userApplicationAccessService;
 
-
-	public UserAuthorizationProvider(IGroupRepository groupRepository, IPermissionRepository permissionRepository,
-		IUserRepository userRepository, IUserApplicationAccessService userApplicationAccessService)
+	public UserAuthorizationProvider(
+		IGroupRepository groupRepository,
+		IPermissionRepository permissionRepository,
+		IUserRepository userRepository,
+		IUserApplicationAccessService userApplicationAccessService)
 	{
-
 		_groupRepository = groupRepository;
 		_permissionRepository = permissionRepository;
 		_userRepository = userRepository;
 		_userApplicationAccessService = userApplicationAccessService;
 	}
-	public async Task<UserAuthorizationResult?> GetCurrentAuthorizationAsync(string userId, string applicationId, 
+
+	public async Task<UserAuthorizationResult?> GetCurrentAuthorizationAsync(
+		string userId,
+		string applicationId,
 		CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		var user = await _userRepository.GetByUserIdAsync(userId);
+
 		if (user is null || !user.IsActive || user.IsBlocked)
 		{
 			return null;
 		}
-		var isAssigned = await _userApplicationAccessService 
+
+		var isAssigned = await _userApplicationAccessService
 			.IsUserAllowedAsync(userId, applicationId);
+
 		if (!isAssigned)
 		{
 			return null;
 		}
-		var groups = await _groupRepository.GetGroupsByUserIdAsync(userId, applicationId);
+
+		var groups = await _groupRepository
+			.GetGroupsByUserIdAsync(userId, applicationId);
+
 		cancellationToken.ThrowIfCancellationRequested();
-		var permissions = await _permissionRepository.GetPermissionsByUserIdAsync(userId, applicationId);
+
+		var permissions = await _permissionRepository
+			.GetPermissionsByUserIdAsync(userId, applicationId);
+
 		return new UserAuthorizationResult
 		{
 			Roles = groups.Select(g => g.GroupName).ToList(),
-			Permissions = permissions.Select(p => p.PermissionCode).ToList(),
+			Permissions = permissions.Select(p => p.PermissionCode).ToList()
 		};
 	}
-
 }

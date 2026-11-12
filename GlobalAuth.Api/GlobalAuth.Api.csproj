@@ -17,6 +17,7 @@
 
 	<ItemGroup>
 	  <Folder Include="UserAuthentication\" />
+	  <Folder Include="UserAuthentication\Contracts\" />
 	</ItemGroup>
 
 

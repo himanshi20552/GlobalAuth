@@ -3,6 +3,7 @@ using ApplicationAuthentication.DTOs.Requests;
 using ApplicationAuthentication.DTOs.Responses;
 using Microsoft.AspNetCore.Mvc;
 using ApplicationAuthentication.Services.Interfaces;
+using GlobalAuth.Api.Services;
 
 namespace ApplicationAuthentication.Controllers;
 
