@@ -1,15 +1,16 @@
 using System.Security.Cryptography;
-using GlobalAuth.Api.Configuration;
-using GlobalAuth.Api.Services;
-using GlobalAuth.Api.Data;
-using GlobalAuth.Api.Repositories;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
 using ApplicationAuthentication.Authentication.Interfaces;
 using ApplicationAuthentication.Repositories.Interfaces;
+using ApplicationAuthentication.Services;
 using ApplicationAuthentication.Services.Interfaces;
+using GlobalAuth.Api.Configuration;
+using GlobalAuth.Api.Data;
+using GlobalAuth.Api.Repositories;
+using GlobalAuth.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using UserAuthRepositories = ApplicationAuthentication.Repositories;
 using UserAuthServices = ApplicationAuthentication.Services;
 
@@ -90,6 +91,7 @@ builder.Services.AddScoped<IApplicationRepository, UserAuthRepositories.Applicat
 // User authentication services
 builder.Services.AddScoped<IPasswordHashingService, UserAuthServices.PasswordHashingService>();
 builder.Services.AddScoped<IAuthenticationService, UserAuthServices.AuthenticationService>();
+builder.Services.AddScoped<IPasswordChangeService,PasswordChangeService>();
 
 builder.Services.AddScoped<IApplicationValidationService, UserAuthServices.ApplicationValidationService>();
 builder.Services.AddScoped<IUserApplicationAccessService, UserAuthServices.UserApplicationAccessService>();

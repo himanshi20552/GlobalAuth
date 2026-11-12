@@ -55,21 +55,91 @@ namespace GlobalAuth.Api.Repositories
 
 		}
 		//revoke all active sessions for a user or client
-		public async Task RevokeAllActiveAsync( string subjectId, string applicationId, string revocationSource, CancellationToken cancellationToken = default)
+
+		public async Task RevokeAllActiveAsync(
+			string subjectId,
+			string applicationId,
+			string revocationSource,
+			CancellationToken cancellationToken = default)
 		{
 			const string sql = """
-				 update auth.AuthSessions 
-				 set StatusID=2,RevokedAtUtc=SYSUTCDATETIME(),RevocationSource=@RevocationSource
-				 where SubjectID=@SubjectID and 
-				 ApplicationID=@ApplicationID
-				 and RevokedAtUtc is null and StatusID=1;
-				 """;
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+
+        BEGIN TRY
+            BEGIN TRANSACTION;
+
+            DECLARE @NowUtc DATETIME2 = SYSUTCDATETIME();
+            DECLARE @LockedApplicationID NVARCHAR(100);
+
+            -- 1. Lock the application record first.
+            SELECT @LockedApplicationID = ApplicationID
+            FROM auth.Applications WITH (HOLDLOCK)
+            WHERE ApplicationID = @ApplicationID;
+
+            IF @LockedApplicationID IS NOT NULL
+            BEGIN
+                -- 2. Identify and lock all active sessions
+                -- belonging to this user in this application.
+                DECLARE @SessionIds TABLE
+                (
+                    SessionID UNIQUEIDENTIFIER PRIMARY KEY
+                );
+
+                INSERT INTO @SessionIds (SessionID)
+                SELECT SessionID
+                FROM auth.AuthSessions WITH (UPDLOCK, HOLDLOCK)
+                WHERE SubjectID = @SubjectID
+                  AND ApplicationID = @ApplicationID
+                  AND StatusID = 1
+                  AND RevokedAtUtc IS NULL;
+
+                -- 3. Revoke all identified sessions.
+                UPDATE s
+                SET
+                    StatusID = 2,
+                    RevokedAtUtc = @NowUtc,
+                    RevocationSource = @RevocationSource
+                FROM auth.AuthSessions s
+                INNER JOIN @SessionIds ids
+                    ON ids.SessionID = s.SessionID;
+
+                -- 4. Revoke every refresh token belonging
+                -- to those sessions.
+                UPDATE rt
+                SET RevokedAtUtc = @NowUtc
+                FROM auth.AuthRefreshTokens rt
+                INNER JOIN @SessionIds ids
+                    ON ids.SessionID = rt.SessionID
+                WHERE rt.RevokedAtUtc IS NULL;
+            END;
+
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0
+                ROLLBACK TRANSACTION;
+
+            THROW;
+        END CATCH;
+        """;
+
 			await using var conn = _connFactory.CreateConnection();
 			await conn.OpenAsync(cancellationToken);
-			var command = new CommandDefinition(sql, new { SubjectID = subjectId, ApplicationID = applicationId,
-				RevocationSource = revocationSource }, cancellationToken: cancellationToken);
+
+			var command = new CommandDefinition(
+				sql,
+				new
+				{
+					SubjectID = subjectId,
+					ApplicationID = applicationId,
+					RevocationSource = revocationSource
+				},
+				cancellationToken: cancellationToken);
+
 			await conn.ExecuteAsync(command);
 		}
+
 		//to create a new session in db for a user after checking apps session policy
 		public async Task<SessionCreationResult> CreateUserSessionAsync(AuthSession session,CancellationToken cancellationToken = default)
 		{
