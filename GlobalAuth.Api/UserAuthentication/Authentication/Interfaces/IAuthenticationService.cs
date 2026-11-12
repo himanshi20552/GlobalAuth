@@ -4,5 +4,6 @@ namespace ApplicationAuthentication.Authentication.Interfaces;
 
 public interface IAuthenticationService
 {
-	Task<UserAuthenticationResult?> AuthenticateUserAsync (string userId, string password);
+	Task<UserAuthenticationResult?> AuthenticateUserAsync(string userId,string password,
+		CancellationToken cancellationToken = default);
 }

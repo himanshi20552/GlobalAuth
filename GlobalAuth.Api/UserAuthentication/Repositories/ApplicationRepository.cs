@@ -8,19 +8,29 @@ namespace ApplicationAuthentication.Repositories;
 public class ApplicationRepository : IApplicationRepository
 {
 	private readonly SqlConnectionFactory _databaseConnection;
+
 	public ApplicationRepository(SqlConnectionFactory databaseConnection)
 	{
 		_databaseConnection = databaseConnection;
 	}
-	public async Task<Application?> GetByApplicationIdAsync(string applicationId) {
-		const string sql = """
-			SELECT ApplicationId, ApplicationName, HashKey,IsActive,CreatedAt
-			FROM Applications
-			WHERE ApplicationId = @ApplicationId;
-			""";
-		using var connection = _databaseConnection.CreateConnection();
-		var application = await connection.QueryFirstOrDefaultAsync<Application>(sql, new { ApplicationId = applicationId });
 
-		return application;
+	public async Task<Application?> GetByApplicationIdAsync(
+		string applicationId,
+		CancellationToken cancellationToken = default)
+	{
+		const string sql = """
+            SELECT ApplicationId, ApplicationName, HashKey, IsActive, CreatedAt
+            FROM Applications
+            WHERE ApplicationId = @ApplicationId;
+            """;
+
+		var command = new CommandDefinition(
+			commandText: sql,
+			parameters: new { ApplicationId = applicationId },
+			cancellationToken: cancellationToken);
+
+		using var connection = _databaseConnection.CreateConnection();
+
+		return await connection.QueryFirstOrDefaultAsync<Application>(command);
 	}
 }

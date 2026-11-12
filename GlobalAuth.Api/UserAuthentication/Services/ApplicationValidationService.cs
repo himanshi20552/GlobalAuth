@@ -13,17 +13,28 @@ public class ApplicationValidationService : IApplicationValidationService
 		_applicationRepository = applicationRepository;
 	}
 
-	public async Task<bool> ValidateApplicationAsync(string applicationId,string hashKey)
+	public async Task<bool> ValidateApplicationAsync(
+		string applicationId,
+		string hashKey,
+		CancellationToken cancellationToken = default)
 	{
-		if (string.IsNullOrWhiteSpace(applicationId) ||string.IsNullOrWhiteSpace(hashKey))
+		if (string.IsNullOrWhiteSpace(applicationId) ||
+			string.IsNullOrWhiteSpace(hashKey))
 		{
 			return false;
 		}
-		var application = await _applicationRepository.GetByApplicationIdAsync(applicationId);
+
+		var application = await _applicationRepository
+			.GetByApplicationIdAsync(applicationId, cancellationToken);
+
 		if (application == null || !application.IsActive)
 		{
 			return false;
 		}
-		return string.Equals(application.HashKey,hashKey,StringComparison.Ordinal);
+
+		return string.Equals(
+			application.HashKey,
+			hashKey,
+			StringComparison.Ordinal);
 	}
 }

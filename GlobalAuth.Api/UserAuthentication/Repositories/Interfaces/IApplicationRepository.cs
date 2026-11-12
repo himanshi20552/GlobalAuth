@@ -4,5 +4,5 @@ namespace ApplicationAuthentication.Repositories.Interfaces;
 
 public interface IApplicationRepository
 {
-	Task<Application?> GetByApplicationIdAsync(string applicationId);
+	Task<Application?> GetByApplicationIdAsync(string applicationId,CancellationToken cancellationToken = default);
 }

@@ -2,5 +2,6 @@
 
 public interface IUserApplicationAccessService
 {
-	Task<bool> IsUserAllowedAsync(string userId, string applicationId);
+	Task<bool> IsUserAllowedAsync(string userId,string applicationId,
+		CancellationToken cancellationToken = default);
 }
