@@ -70,6 +70,22 @@ namespace ApplicationAuthentication.Repositories
 
         BEGIN TRY
             BEGIN TRANSACTION;
+                    DECLARE @LockResult INT;
+        DECLARE @LockResource NVARCHAR(255);
+
+        SET @LockResource = CONCAT(
+            'AuthSession:USER:',
+            @UserID
+        );
+
+        EXEC @LockResult = sys.sp_getapplock
+            @Resource = @LockResource,
+            @LockMode = 'Exclusive',
+            @LockOwner = 'Transaction',
+            @LockTimeout = 10000;
+
+        IF @LockResult < 0
+            THROW 50042, 'Unable to acquire user authentication lock.', 1;
 
             DECLARE @NowUtc DATETIME2 = SYSUTCDATETIME();
             DECLARE @LockedApplicationID NVARCHAR(100);
