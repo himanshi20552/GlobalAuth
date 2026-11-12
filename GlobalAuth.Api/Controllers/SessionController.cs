@@ -130,7 +130,7 @@ public sealed class SessionController : ControllerBase
 		var applicationId = User.FindFirst("client_id")?.Value;
 		var sessionIdValue = User.FindFirst("sid")?.Value;
 
-		// Only USER tokens have sessions.
+		// user tokens will have sessions
 		if (principalType != "USER")
 			return Forbid();
 

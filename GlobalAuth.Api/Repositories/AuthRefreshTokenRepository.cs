@@ -15,7 +15,7 @@ namespace GlobalAuth.Api.Repositories
             DateTime expiresAtUtc, CancellationToken cancellationToken = default)
         {
             const string sql = """
-                Set xact abort on;
+                Set xact_abort on;
                 begin transaction;
                 declare @NowUtc Datetime2=SYSUTCDATETIME();
                 declare @ApplicationID nvarchar(100);
@@ -98,6 +98,181 @@ namespace GlobalAuth.Api.Repositories
 				)
 			);
 		}
+
+
+
+		public async Task<bool> RevokeSessionAndRefreshTokensAsync(
+			byte[] tokenHash,
+			string revocationSource,
+			CancellationToken cancellationToken = default)
+		{
+			// Find the session associated with the presented token.
+			const string findSessionSql = """
+        SELECT SessionID
+        FROM auth.AuthRefreshTokens
+        WHERE TokenHash = @TokenHash;
+        """;
+
+			await using var connection = _connFactory.CreateConnection();
+			await connection.OpenAsync(cancellationToken);
+
+			var sessionId = await connection.QuerySingleOrDefaultAsync<Guid?>(
+				new CommandDefinition(
+					findSessionSql,
+					new { TokenHash = tokenHash },
+					cancellationToken: cancellationToken));
+
+			if (!sessionId.HasValue)
+				return false;
+
+			await using var transaction =
+				await connection.BeginTransactionAsync(
+					IsolationLevel.ReadCommitted,
+					cancellationToken);
+
+			try
+			{
+				// Get the application's ID associated with this session.
+				const string getApplicationSql = """
+            SELECT ApplicationID
+            FROM auth.AuthSessions
+            WHERE SessionID = @SessionID;
+            """;
+
+				var applicationId =
+					await connection.QuerySingleOrDefaultAsync<string>(
+						new CommandDefinition(
+							getApplicationSql,
+							new { SessionID = sessionId.Value },
+							transaction: transaction,
+							cancellationToken: cancellationToken));
+
+				if (string.IsNullOrWhiteSpace(applicationId))
+				{
+					await transaction.CommitAsync(cancellationToken);
+					return false;
+				}
+
+				// 1. Lock the application.
+				const string lockApplicationSql = """
+            SELECT ApplicationID
+            FROM auth.Applications WITH (HOLDLOCK)
+            WHERE ApplicationID = @ApplicationID;
+            """;
+
+				var lockedApplicationId =
+					await connection.QuerySingleOrDefaultAsync<string>(
+						new CommandDefinition(
+							lockApplicationSql,
+							new { ApplicationID = applicationId },
+							transaction: transaction,
+							cancellationToken: cancellationToken));
+
+				if (lockedApplicationId is null)
+				{
+					await transaction.CommitAsync(cancellationToken);
+					return false;
+				}
+
+				// 2. Lock the session.
+				const string lockSessionSql = """
+            SELECT ApplicationID
+            FROM auth.AuthSessions WITH (UPDLOCK, HOLDLOCK)
+            WHERE SessionID = @SessionID;
+            """;
+
+				var lockedSessionApplicationId =
+					await connection.QuerySingleOrDefaultAsync<string>(
+						new CommandDefinition(
+							lockSessionSql,
+							new { SessionID = sessionId.Value },
+							transaction: transaction,
+							cancellationToken: cancellationToken));
+
+				if (!string.Equals(
+					lockedSessionApplicationId,
+					applicationId,
+					StringComparison.Ordinal))
+				{
+					await transaction.CommitAsync(cancellationToken);
+					return false;
+				}
+
+				// 3. Lock and verify the presented refresh token.
+				const string lockTokenSql = """
+            SELECT SessionID
+            FROM auth.AuthRefreshTokens WITH (UPDLOCK, HOLDLOCK)
+            WHERE TokenHash = @TokenHash
+              AND SessionID = @SessionID;
+            """;
+
+				var confirmedSessionId =
+					await connection.QuerySingleOrDefaultAsync<Guid?>(
+						new CommandDefinition(
+							lockTokenSql,
+							new
+							{
+								TokenHash = tokenHash,
+								SessionID = sessionId.Value
+							},
+							transaction: transaction,
+							cancellationToken: cancellationToken));
+
+				if (!confirmedSessionId.HasValue)
+				{
+					await transaction.CommitAsync(cancellationToken);
+					return false;
+				}
+
+				// Revoke the session and every refresh token belonging to it.
+				const string revokeSql = """
+            DECLARE @NowUtc DATETIME2 = SYSUTCDATETIME();
+
+            UPDATE auth.AuthSessions
+            SET
+                StatusID = 2,
+                RevokedAtUtc = @NowUtc,
+                RevocationSource = @RevocationSource
+            WHERE SessionID = @SessionID
+              AND StatusID = 1
+              AND RevokedAtUtc IS NULL;
+
+            UPDATE auth.AuthRefreshTokens
+            SET RevokedAtUtc = @NowUtc
+            WHERE SessionID = @SessionID
+              AND RevokedAtUtc IS NULL;
+            """;
+
+				await connection.ExecuteAsync(
+					new CommandDefinition(
+						revokeSql,
+						new
+						{
+							SessionID = sessionId.Value,
+							RevocationSource = revocationSource
+						},
+						transaction: transaction,
+						cancellationToken: cancellationToken));
+
+				await transaction.CommitAsync(cancellationToken);
+				return true;
+			}
+			catch
+			{
+				try
+				{
+					await transaction.RollbackAsync(CancellationToken.None);
+				}
+				catch
+				{
+					// Preserve the original exception.
+				}
+
+				throw;
+			}
+		}
+
+
 
 	}
 }

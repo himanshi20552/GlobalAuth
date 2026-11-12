@@ -272,29 +272,16 @@ public sealed class TokenRefreshService
 
 	// Logout applies only to USER sessions.
 	// There is intentionally no client logout operation.
-	public async Task LogoutAsync(
-		string presentedRefreshToken,
-		CancellationToken cancellationToken = default)
+
+	public async Task LogoutAsync(string presentedRefreshToken,CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(presentedRefreshToken))
 			throw new ArgumentException("Refresh token is required.");
 
-		var tokenHash = _refreshTokenService.ComputeHash(
-			presentedRefreshToken);
+		var tokenHash = _refreshTokenService.ComputeHash(presentedRefreshToken);
 
-		var context =
-			await _userRefreshTokenRepository.GetContextByTokenHashAsync(
-				tokenHash, cancellationToken);
-
-		if (context is null)
-		{
-			throw new UnauthorizedAccessException(
-				"Invalid user refresh token.");
-		}
-
-		await _sessionService.RevokeSessionAsync(
-			context.SessionID,
-			"TokenRefreshService.LogoutAsync",
+		await _userRefreshTokenRepository.RevokeSessionAndRefreshTokensAsync(tokenHash,"TokenRefreshService.LogoutAsync",
 			cancellationToken);
 	}
+
 }
