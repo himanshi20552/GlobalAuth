@@ -2,5 +2,6 @@
 
 public interface IUserApplicationRepository
 {
-	Task<bool> IsUserAssignedToApplicationAsync(string userId, string applicationId);
+	Task<bool> IsUserAssignedToApplicationAsync(string userId,string applicationId,
+		CancellationToken cancellationToken = default);
 }
