@@ -125,6 +125,7 @@ public class AuthenticationController : ControllerBase
 			return Unauthorized(
 				"Credentials have changed. Please log in again.");
 		}
+		return Ok(tokens);
 	}
 	[HttpPost("change-password")]
 	[Authorize]
