@@ -158,6 +158,7 @@ CancellationToken cancellationToken = default)
 				0 => SessionCreationResult.Created,
 				1 => SessionCreationResult.SessionLimitReached,
 				2 => SessionCreationResult.ApplicationInactive,
+				3 => SessionCreationResult.CredentialsChanged,
 				_ => throw new InvalidOperationException("Unexpected result from CreateUserSession stored procedure.")
 			};
 

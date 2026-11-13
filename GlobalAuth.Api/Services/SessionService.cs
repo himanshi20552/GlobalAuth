@@ -21,6 +21,8 @@ public sealed class SessionService
 
 		if (string.IsNullOrWhiteSpace(applicationId))
 			throw new ArgumentException("Application ID is required.");
+		if (string.IsNullOrWhiteSpace(expectedPasswordHash))
+			throw new ArgumentException("Verified password hash is required.");
 
 		var now = DateTime.UtcNow;
 
@@ -48,6 +50,8 @@ public sealed class SessionService
 			SessionCreationResult.ApplicationInactive =>
 				throw new InvalidOperationException(
 					"The application is inactive or not registered."),
+			SessionCreationResult.CredentialsChanged =>
+				throw new UnauthorizedAccessException("Credentials have changed. Please log in again."),
 
 			_ => throw new InvalidOperationException(
 				"Unexpected session creation result.")

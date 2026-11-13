@@ -2,5 +2,5 @@
 
 public enum SessionCreationResult
 {
-	Created=0,SessionLimitReached=1,ApplicationInactive=2, ClientInactive=3
+	Created = 0,SessionLimitReached = 1,ApplicationInactive = 2,CredentialsChanged = 3
 }
