@@ -36,10 +36,10 @@ namespace ApplicationAuthentication.Repositories
 		}
 
 		public async Task<bool> UpdatePasswordHashAsync(
-	string userId,
-	string currentPasswordHash,
-	string newPasswordHash,
-	CancellationToken cancellationToken = default)
+		string userId,
+		string currentPasswordHash,
+		string newPasswordHash,
+		CancellationToken cancellationToken = default)
 		{
 			const string sql = """
         UPDATE dbo.Users
@@ -66,156 +66,6 @@ namespace ApplicationAuthentication.Repositories
 			var affectedRows = await connection.ExecuteAsync(command);
 
 			return affectedRows == 1;
-		}
-
-		public async Task<bool> ChangePasswordAndRevokeSessionsAsync(string userId,string applicationId,Guid currentSessionId,
-			string currentPasswordHash,string newPasswordHash,string revocationSource,
-			CancellationToken cancellationToken = default)
-		{
-			const string sql = """
-        SET NOCOUNT ON;
-        SET XACT_ABORT ON;
-
-        BEGIN TRY
-            BEGIN TRANSACTION;
-                    DECLARE @LockResult INT;
-        DECLARE @LockResource NVARCHAR(255);
-
-        SET @LockResource = CONCAT(
-            'AuthSession:USER:',
-            @UserID
-        );
-
-        EXEC @LockResult = sys.sp_getapplock
-            @Resource = @LockResource,
-            @LockMode = 'Exclusive',
-            @LockOwner = 'Transaction',
-            @LockTimeout = 10000;
-
-        IF @LockResult < 0
-            THROW 50042, 'Unable to acquire user authentication lock.', 1;
-
-            DECLARE @NowUtc DATETIME2 = SYSUTCDATETIME();
-            DECLARE @LockedApplicationID NVARCHAR(100);
-
-            -- 1. Lock and verify the application.
-            SELECT @LockedApplicationID = ApplicationID
-            FROM auth.Applications WITH (HOLDLOCK)
-            WHERE ApplicationID = @ApplicationID
-              AND IsActive = 1;
-
-            IF @LockedApplicationID IS NULL
-            BEGIN
-                ROLLBACK TRANSACTION;
-                SELECT CAST(0 AS BIT);
-                RETURN;
-            END;
-
-            -- 2. Lock all sessions belonging to this user
-            -- in the current application.
-            DECLARE @SessionIds TABLE
-            (
-                SessionID UNIQUEIDENTIFIER PRIMARY KEY
-            );
-
-            INSERT INTO @SessionIds (SessionID)
-            SELECT SessionID
-            FROM auth.AuthSessions WITH (UPDLOCK, HOLDLOCK)
-            WHERE SubjectID = @UserID;
-
-           -- 3. Ensure the current session is active
-        -- and has not exceeded its application's idle timeout.
-        IF NOT EXISTS
-        (
-            SELECT 1
-            FROM auth.AuthSessions s
-            INNER JOIN auth.Applications a
-                ON a.ApplicationID = s.ApplicationID
-            INNER JOIN @SessionIds ids
-                ON ids.SessionID = s.SessionID
-            WHERE s.SessionID = @CurrentSessionID
-              AND s.SubjectID = @UserID
-              AND s.ApplicationID = @ApplicationID
-              AND s.StatusID = 1
-              AND s.RevokedAtUtc IS NULL
-              AND a.IsActive = 1
-              AND s.LastActivityAtUtc >
-                  DATEADD(MINUTE, -a.IdleTimeoutMinutes, @NowUtc)
-        )
-        BEGIN
-            ROLLBACK TRANSACTION;
-            SELECT CAST(0 AS BIT);
-            RETURN;
-        END;
-
-            -- 4. Update the password only if the old hash
-            -- still matches the one verified by the service.
-           UPDATE dbo.Users
-        SET PasswordHash = @NewPasswordHash
-        WHERE UserId = @UserID
-          AND IsActive = 1
-          AND IsBlocked = 0
-          AND CONVERT(VARBINARY(MAX), PasswordHash) =
-              CONVERT(VARBINARY(MAX), @CurrentPasswordHash);
-
-            IF @@ROWCOUNT <> 1
-            BEGIN
-                ROLLBACK TRANSACTION;
-                SELECT CAST(0 AS BIT);
-                RETURN;
-            END;
-
-            -- 5. Revoke all active sessions across all application.
-            UPDATE s
-            SET
-                StatusID = 2,
-                RevokedAtUtc = @NowUtc,
-                RevocationSource = @RevocationSource
-            FROM auth.AuthSessions s
-            INNER JOIN @SessionIds ids
-                ON ids.SessionID = s.SessionID
-            WHERE s.StatusID = 1
-              AND s.RevokedAtUtc IS NULL;
-
-            -- 6. Revoke refresh tokens belonging to
-            -- all sessions in all applications.
-            UPDATE rt
-            SET RevokedAtUtc = @NowUtc
-            FROM auth.AuthRefreshTokens rt
-            INNER JOIN @SessionIds ids
-                ON ids.SessionID = rt.SessionID
-            WHERE rt.RevokedAtUtc IS NULL;
-
-            COMMIT TRANSACTION;
-
-            SELECT CAST(1 AS BIT);
-        END TRY
-        BEGIN CATCH
-            IF @@TRANCOUNT > 0
-                ROLLBACK TRANSACTION;
-
-            THROW;
-        END CATCH;
-        """;
-
-			using var connection = _databaseConnection.CreateConnection();
-
-			await connection.OpenAsync(cancellationToken);
-
-			var command = new CommandDefinition(
-				sql,
-				new
-				{
-					UserID = userId,
-					ApplicationID = applicationId,
-					CurrentSessionID = currentSessionId,
-					CurrentPasswordHash = currentPasswordHash,
-					NewPasswordHash = newPasswordHash,
-					RevocationSource = revocationSource
-				},
-				cancellationToken: cancellationToken);
-
-			return await connection.ExecuteScalarAsync<bool>(command);
 		}
 
 	}

@@ -46,8 +46,7 @@ public class AuthenticationService : IAuthenticationService
 
 			await _userRepository.UpdatePasswordHashAsync(
 				user.UserId,
-				newPasswordHash,
-				cancellationToken);
+				newPasswordHash,cancellationToken);
 		}
 
 		return new UserAuthenticationResult
