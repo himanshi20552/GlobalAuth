@@ -68,5 +68,39 @@ namespace ApplicationAuthentication.Repositories
 			return affectedRows == 1;
 		}
 
+		public async Task<bool> ChangePasswordAndRevokeSessionsAsync(
+			string userId,
+			string applicationId,
+			Guid currentSessionId,
+			string currentPasswordHash,
+			string newPasswordHash,
+			string revocationSource,
+			CancellationToken cancellationToken = default)
+		{
+			const string procedure = "auth.ChangePasswordAndRevokeSessions";
+
+			await using var connection = _databaseConnection.CreateConnection();
+			await connection.OpenAsync(cancellationToken);
+
+			var command = new CommandDefinition(
+				commandText: procedure,
+				parameters: new
+				{
+					UserID = userId,
+					ApplicationID = applicationId,
+					CurrentSessionID = currentSessionId,
+					CurrentPasswordHash = currentPasswordHash,
+					NewPasswordHash = newPasswordHash,
+					RevocationSource = revocationSource
+				},
+				commandType: System.Data.CommandType.StoredProcedure,
+				cancellationToken: cancellationToken);
+
+			var result = await connection.ExecuteScalarAsync<bool>(command);
+
+			return result;
+		}
+
+
 	}
 }
