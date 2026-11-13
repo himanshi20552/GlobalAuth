@@ -11,18 +11,7 @@ namespace GlobalAuth.Api.Repositories
 			_connFactory = connFactory;
 		}
 		
-		//to retrieve a session by its id from db
-		public async Task<AuthSession?> GetByIdAsync(Guid sessionId, CancellationToken cancellationToken = default)
-		{
-			const string sql = """
-				Select * from auth.AuthSessions where SessionID=@SessionID;
-				""";
-			await using var conn = _connFactory.CreateConnection();
-			await conn.OpenAsync(cancellationToken);
-			var command = new CommandDefinition(sql, new { SessionID = sessionId }, cancellationToken: cancellationToken);
-			return await conn.QuerySingleOrDefaultAsync<AuthSession>(command);
-
-		}
+	
 		//retrieve active sessions for a user or client
 		public async Task<IReadOnlyList<AuthSession>> GetActiveBySubjectAsync( string subjectId, string applicationId, CancellationToken cancellationToken = default)
 		{

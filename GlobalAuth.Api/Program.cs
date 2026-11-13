@@ -150,28 +150,28 @@ builder.Services
 					RoleClaimType = "role"
 				};
 
+
 			jwtOptions.Events = new JwtBearerEvents
 			{
-
-				OnTokenValidated = context =>
+				OnTokenValidated = async context =>
 				{
 					var principal = context.Principal;
 
 					if (principal is null)
 					{
 						context.Fail("Missing token principal.");
-						return Task.CompletedTask;
+						return;
 					}
 
 					// Claims required for both USER and CLIENT tokens.
 					string[] requiredClaims =
 					{
-		"sub",
-		"jti",
-		"principal_type",
-		"token_type",
-		"client_id"
-	};
+			"sub",
+			"jti",
+			"principal_type",
+			"token_type",
+			"client_id"
+		};
 
 					foreach (var claimType in requiredClaims)
 					{
@@ -181,23 +181,26 @@ builder.Services
 							string.IsNullOrWhiteSpace(claims[0].Value))
 						{
 							context.Fail($"Invalid or missing {claimType} claim.");
-							return Task.CompletedTask;
+							return;
 						}
 					}
 
-					var principalType = principal.FindFirst("principal_type")!.Value;
-					var tokenType = principal.FindFirst("token_type")!.Value;
+					var principalType =
+						principal.FindFirst("principal_type")!.Value;
+
+					var tokenType =
+						principal.FindFirst("token_type")!.Value;
 
 					if (principalType != "USER" && principalType != "CLIENT")
 					{
 						context.Fail("Invalid principal type.");
-						return Task.CompletedTask;
+						return;
 					}
 
 					if (tokenType != "access")
 					{
 						context.Fail("Invalid token type.");
-						return Task.CompletedTask;
+						return;
 					}
 
 					// Only USER tokens should contain a session ID.
@@ -206,22 +209,58 @@ builder.Services
 					if (principalType == "USER")
 					{
 						if (sessionClaims.Length != 1 ||
-							!Guid.TryParse(sessionClaims[0].Value, out _))
+							!Guid.TryParse(sessionClaims[0].Value, out var sessionId))
 						{
 							context.Fail("Invalid or missing session ID.");
-							return Task.CompletedTask;
+							return;
+						}
+
+						// Validate the actual session against the database.
+						var subjectId = principal.FindFirst("sub")!.Value;
+						var applicationId = principal.FindFirst("client_id")!.Value;
+
+						try
+						{
+							// Resolve the scoped service from the current request.
+							var sessionService = context.HttpContext.RequestServices
+								.GetRequiredService<SessionService>();
+
+							var isSessionValid =
+								await sessionService.IsSessionValidAsync(
+									sessionId,
+									subjectId,
+									applicationId,
+									context.HttpContext.RequestAborted);
+
+							if (!isSessionValid)
+							{
+								context.Fail("User session is no longer active.");
+								return;
+							}
+						}
+						catch (Exception exception)
+						{
+							// Fail closed if the database/session check fails.
+							var logger = context.HttpContext.RequestServices
+								.GetRequiredService<ILoggerFactory>()
+								.CreateLogger("JwtSessionValidation");
+
+							logger.LogError(
+								exception,
+								"Unable to validate the user session.");
+
+							context.Fail("Unable to validate user session.");
+							return;
 						}
 					}
 					else if (sessionClaims.Length != 0)
 					{
 						context.Fail("CLIENT tokens must not contain a session ID.");
-						return Task.CompletedTask;
+						return;
 					}
-
-					return Task.CompletedTask;
 				}
-
 			};
+
 		});
 builder.Services.AddAuthorization(options =>
 {
