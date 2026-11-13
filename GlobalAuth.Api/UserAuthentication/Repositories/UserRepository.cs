@@ -35,21 +35,62 @@ namespace ApplicationAuthentication.Repositories
 			return await connection.QueryFirstOrDefaultAsync<User>(command);
 		}
 
+
 		public async Task<bool> UpdatePasswordHashAsync(
-		string userId,
-		string currentPasswordHash,
-		string newPasswordHash,
-		CancellationToken cancellationToken = default)
+			string userId,
+			string currentPasswordHash,
+			string newPasswordHash,
+			CancellationToken cancellationToken = default)
 		{
 			const string sql = """
-        UPDATE dbo.Users
-        SET PasswordHash = @NewPasswordHash
-        WHERE UserId = @UserId
-          AND IsActive = 1
-          AND IsBlocked = 0
-          AND CONVERT(VARBINARY(MAX), PasswordHash) =
-              CONVERT(VARBINARY(MAX), @CurrentPasswordHash);
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+
+        BEGIN TRY
+            BEGIN TRANSACTION;
+
+            DECLARE @LockResult INT;
+            DECLARE @LockResource NVARCHAR(255);
+
+            SET @LockResource = CONCAT(
+                'AuthSession:USER:',
+                @UserId
+            );
+
+            EXEC @LockResult = sys.sp_getapplock
+                @Resource = @LockResource,
+                @LockMode = 'Exclusive',
+                @LockOwner = 'Transaction',
+                @LockTimeout = 10000;
+
+            IF @LockResult < 0
+                THROW 50052, 'Unable to acquire user authentication lock.', 1;
+
+            UPDATE dbo.Users
+            SET PasswordHash = @NewPasswordHash
+            WHERE UserId = @UserId
+              AND IsActive = 1
+              AND IsBlocked = 0
+              AND CONVERT(VARBINARY(MAX), PasswordHash) =
+                  CONVERT(VARBINARY(MAX), @CurrentPasswordHash);
+
+            DECLARE @RowsAffected INT = @@ROWCOUNT;
+
+            COMMIT TRANSACTION;
+
+            SELECT @RowsAffected;
+
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0
+                ROLLBACK TRANSACTION;
+
+            THROW;
+        END CATCH;
         """;
+
+			await using var connection = _databaseConnection.CreateConnection();
+			await connection.OpenAsync(cancellationToken);
 
 			var command = new CommandDefinition(
 				commandText: sql,
@@ -61,12 +102,11 @@ namespace ApplicationAuthentication.Repositories
 				},
 				cancellationToken: cancellationToken);
 
-			using var connection = _databaseConnection.CreateConnection();
-
-			var affectedRows = await connection.ExecuteAsync(command);
+			var affectedRows = await connection.ExecuteScalarAsync<int>(command);
 
 			return affectedRows == 1;
 		}
+
 
 		public async Task<bool> ChangePasswordAndRevokeSessionsAsync(
 			string userId,
