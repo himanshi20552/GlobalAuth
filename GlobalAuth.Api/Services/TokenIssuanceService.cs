@@ -68,6 +68,7 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 		var sessionId = await _sessionService.CreateUserSessionAsync(
 			request.SubjectId,
 			request.ApplicationId!,
+			request.VerifiedPasswordHash!,
 			cancellationToken);
 
 		try
@@ -239,12 +240,10 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 		if (!isUser && !isClient)
 			throw new ArgumentException("Invalid principal type.");
 
-		if (isUser &&
-			string.IsNullOrWhiteSpace(request.ApplicationId))
-		{
-			throw new ArgumentException(
-				"Application ID is required for user token issuance.");
-		}
+		if (isUser && string.IsNullOrWhiteSpace(request.ApplicationId))
+			throw new ArgumentException("Application ID is required for user token issuance.");
+		if (isUser && string.IsNullOrWhiteSpace(request.VerifiedPasswordHash))
+			throw new ArgumentException("Verified password hash is required for user token issuance.");
 
 		if (isClient && !string.IsNullOrWhiteSpace(request.ApplicationId))
             throw new ArgumentException("Application ID must not be supplied for client token issuance.");

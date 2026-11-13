@@ -13,10 +13,8 @@ public sealed class SessionService
 	}
 
 
-	public async Task<Guid> CreateUserSessionAsync(
-		string subjectId,
-		string applicationId,
-		CancellationToken cancellationToken = default)
+	public async Task<Guid> CreateUserSessionAsync(string subjectId,string applicationId,
+		string expectedPasswordHash,CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(subjectId))
 			throw new ArgumentException("User ID is required.");
@@ -37,7 +35,7 @@ public sealed class SessionService
 		};
 
 		var result = await _authSessionRepository.CreateUserSessionAsync(
-			session, cancellationToken);
+			session,expectedPasswordHash, cancellationToken);
 
 		return result switch
 		{

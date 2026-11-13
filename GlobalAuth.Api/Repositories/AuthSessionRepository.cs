@@ -141,12 +141,15 @@ namespace GlobalAuth.Api.Repositories
 		}
 
 		//to create a new session in db for a user after checking apps session policy
-		public async Task<SessionCreationResult> CreateUserSessionAsync(AuthSession session,CancellationToken cancellationToken = default)
+		public async Task<SessionCreationResult> CreateUserSessionAsync(AuthSession session, string expectedPasswordHash,
+CancellationToken cancellationToken = default)
 		{
 			const string procedure = "auth.CreateUserSession";
 			await using var conn = _connFactory.CreateConnection();
 			await conn.OpenAsync(cancellationToken);
-			var command=new CommandDefinition( procedure,new{ session.SessionID,ApplicationID=session.ApplicationID, SubjectID= session.SubjectID },
+			var command=new CommandDefinition( procedure,new{ session.SessionID,ApplicationID=session.ApplicationID, SubjectID= session.SubjectID,
+				ExpectedPasswordHash = expectedPasswordHash
+			},
 				commandType:System.Data.CommandType.StoredProcedure,
 				cancellationToken: cancellationToken);
 			var result = await conn.QuerySingleAsync<int>(command);
