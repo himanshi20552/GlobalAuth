@@ -5,6 +5,7 @@ using ApplicationAuthentication.Repositories.Interfaces;
 using ApplicationAuthentication.Services;
 using ApplicationAuthentication.Services.Interfaces;
 using GlobalAuth.Api.Configuration;
+using GlobalAuth.Api.Constants;
 using GlobalAuth.Api.Data;
 using GlobalAuth.Api.Repositories;
 using GlobalAuth.Api.Services;
@@ -92,7 +93,7 @@ builder.Services.AddScoped<IApplicationRepository, UserAuthRepositories.Applicat
 builder.Services.AddScoped<IPasswordHashingService, UserAuthServices.PasswordHashingService>();
 builder.Services.AddScoped<IAuthenticationService, UserAuthServices.AuthenticationService>();
 builder.Services.AddScoped<IPasswordChangeService,PasswordChangeService>();
-
+builder.Services.AddScoped<ApplicationService>();
 builder.Services.AddScoped<IApplicationValidationService, UserAuthServices.ApplicationValidationService>();
 builder.Services.AddScoped<IUserApplicationAccessService, UserAuthServices.UserApplicationAccessService>();
 
@@ -100,7 +101,6 @@ builder.Services.AddScoped<IUserApplicationAccessService, UserAuthServices.UserA
 builder.Services.AddScoped<GlobalAuth.Api.Services.IUserAuthorizationProvider, UserAuthServices.UserAuthorizationProvider>();
 // rsa signing key provider
 builder.Services.AddSingleton<ISigningKeyProvider, RsaFileSigningKeyProvider>();
-
 // jwt Bearer authentication
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -223,8 +223,30 @@ builder.Services
 
 			};
 		});
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+	options.AddPolicy("ApplicationUpdate", policy =>
+	{
+		policy.RequireAuthenticatedUser();
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.PrincipalType, "USER");
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.ClientId, "AUTH_PLATFORM_ADMIN");
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.Permission, "application.update");
+	});
 
+	options.AddPolicy("ApplicationDeactivate", policy =>
+	{
+		policy.RequireAuthenticatedUser();
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.PrincipalType, "USER");
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.ClientId, "AUTH_PLATFORM_ADMIN");
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.Permission, "application.deactivate");
+	});
+});
 // Build application
 var app = builder.Build();
 
