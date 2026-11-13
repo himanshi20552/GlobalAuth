@@ -47,7 +47,8 @@ namespace GlobalAuth.Api.Services
 				ApplicationId = null,
 				Roles = [],
 				Permissions = permissions.ToList(),
-				IpAddress = IpAddress
+				IpAddress = IpAddress,
+				VerifiedClientSecretHash=storedHash
 			};
 			return await _tokenIssuanceService.IssueAsync(issuanceRequest, cancellationToken);
 		}

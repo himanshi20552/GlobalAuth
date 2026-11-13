@@ -21,6 +21,7 @@ public sealed class ClientRefreshTokenRepository
 		Guid familyId,
 		byte[] tokenHash,
 		DateTime expiresAtUtc,
+		byte[] expectedClientSecretHash,
 		CancellationToken cancellationToken = default)
 	{
 		await using var conn = _connFactory.CreateConnection();
@@ -34,7 +35,8 @@ public sealed class ClientRefreshTokenRepository
 				ClientID = clientId,
 				FamilyID = familyId,
 				TokenHash = tokenHash,
-				ExpiresAtUtc = expiresAtUtc
+				ExpiresAtUtc = expiresAtUtc,
+				ExpectedClientSecretHash = expectedClientSecretHash
 			},
 			commandType: CommandType.StoredProcedure,
 			cancellationToken: cancellationToken);

@@ -176,6 +176,7 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 			familyId,
 			refreshToken.TokenHash,
 			refreshTokenExpiresAtUtc,
+			request.VerifiedClientSecretHash!,
 			cancellationToken);
 
 		if (!stored)
@@ -231,11 +232,9 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 		if (request.Permissions is null)
 			throw new ArgumentException("Permissions cannot be null.");
 
-		var isUser =
-			request.PrincipalType == GlobalAuthPrincipalTypes.User;
+		var isUser =request.PrincipalType == GlobalAuthPrincipalTypes.User;
 
-		var isClient =
-			request.PrincipalType == GlobalAuthPrincipalTypes.Client;
+		var isClient =request.PrincipalType == GlobalAuthPrincipalTypes.Client;
 
 		if (!isUser && !isClient)
 			throw new ArgumentException("Invalid principal type.");
@@ -247,7 +246,8 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 
 		if (isClient && !string.IsNullOrWhiteSpace(request.ApplicationId))
             throw new ArgumentException("Application ID must not be supplied for client token issuance.");
-
+		if (isClient && (request.VerifiedClientSecretHash is null || request.VerifiedClientSecretHash.Length != 32))
+			throw new ArgumentException("Verified client secret hash is required for client token issuance.");
 
 		if (isClient && request.Roles.Count > 0)
 			throw new ArgumentException("Client tokens cannot contain user roles.");
