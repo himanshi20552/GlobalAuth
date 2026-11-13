@@ -107,6 +107,7 @@ public static class GlobalAuthServiceCollectionExtensions
 					};
 
 
+
 				jwtOptions.Events = new JwtBearerEvents
 				{
 					OnTokenValidated = async context =>
@@ -119,16 +120,9 @@ public static class GlobalAuthServiceCollectionExtensions
 							return;
 						}
 
-						// Required claims for USER access tokens.
+						// Required claims for both USER and CLIENT tokens.
 						string[] requiredClaims =
-						{
-			"sub",
-			"jti",
-			"sid",
-			"principal_type",
-			"token_type",
-			"client_id"
-		};
+						{"sub","jti","principal_type","token_type","client_id"};
 
 						foreach (var claimType in requiredClaims)
 						{
@@ -142,17 +136,23 @@ public static class GlobalAuthServiceCollectionExtensions
 							}
 						}
 
-						var principalType = principal.FindFirst("principal_type")!.Value;
-						var tokenType = principal.FindFirst("token_type")!.Value;
-						var sessionId = principal.FindFirst("sid")!.Value;
+						var principalType =
+							principal.FindFirst("principal_type")!.Value;
 
-						// This library is intended for user applications.
-						if (!string.Equals(
-								principalType,
-								"USER",
-								StringComparison.OrdinalIgnoreCase))
+						var tokenType =
+							principal.FindFirst("token_type")!.Value;
+
+						var subjectId =
+							principal.FindFirst("sub")!.Value;
+
+						var clientId =
+							principal.FindFirst("client_id")!.Value;
+
+						// Only USER and CLIENT principals are supported.
+						if (principalType != "USER" &&
+							principalType != "CLIENT")
 						{
-							context.Fail("Only USER tokens are supported.");
+							context.Fail("Invalid principal type.");
 							return;
 						}
 
@@ -162,73 +162,102 @@ public static class GlobalAuthServiceCollectionExtensions
 							return;
 						}
 
-						if (!Guid.TryParse(sessionId, out _))
+						var sessionClaims = principal.FindAll("sid").ToArray();
+
+						if (principalType == "USER")
 						{
-							context.Fail("Invalid session ID.");
-							return;
-						}
+							// USER tokens must contain exactly one valid session ID.
+							if (sessionClaims.Length != 1 ||
+								!Guid.TryParse(sessionClaims[0].Value, out _))
+							{
+								context.Fail("Invalid or missing session ID.");
+								return;
+							}
 
-						// Extract the original bearer token.
-						var authorizationHeader =
-							context.Request.Headers.Authorization.ToString();
+							// Extract the original bearer token.
+							var authorizationHeader =
+								context.Request.Headers.Authorization.ToString();
 
-						const string bearerPrefix = "Bearer ";
+							const string bearerPrefix = "Bearer ";
 
-						if (!authorizationHeader.StartsWith(
+							if (!authorizationHeader.StartsWith(
 								bearerPrefix,
 								StringComparison.OrdinalIgnoreCase))
-						{
-							context.Fail("Bearer token is missing.");
-							return;
-						}
-
-						var accessToken =
-							authorizationHeader[bearerPrefix.Length..].Trim();
-
-						if (string.IsNullOrWhiteSpace(accessToken))
-						{
-							context.Fail("Bearer token is missing.");
-							return;
-						}
-
-						// Ask GlobalAuth to validate the session.
-						var sessionValidator = context.HttpContext.RequestServices
-							.GetRequiredService<SessionValidationClient>();
-
-						var loggerFactory = context.HttpContext.RequestServices
-							.GetRequiredService<ILoggerFactory>();
-
-						var logger = loggerFactory.CreateLogger(
-							"GlobalAuth.Client.SessionValidation");
-
-						try
-						{
-							var isSessionValid =
-								await sessionValidator.ValidateSessionAsync(
-									accessToken,
-									context.HttpContext.RequestAborted);
-
-							if (!isSessionValid)
 							{
-								context.Fail("User session is invalid or expired.");
+								context.Fail("Bearer token is missing.");
+								return;
+							}
+
+							var accessToken =
+								authorizationHeader[bearerPrefix.Length..].Trim();
+
+							if (string.IsNullOrWhiteSpace(accessToken))
+							{
+								context.Fail("Bearer token is missing.");
+								return;
+							}
+
+							var sessionValidator =
+								context.HttpContext.RequestServices
+									.GetRequiredService<SessionValidationClient>();
+
+							var logger =
+								context.HttpContext.RequestServices
+									.GetRequiredService<ILoggerFactory>()
+									.CreateLogger(
+										"GlobalAuth.Client.SessionValidation");
+
+							try
+							{
+								var isSessionValid =
+									await sessionValidator.ValidateSessionAsync(
+										accessToken,
+										context.HttpContext.RequestAborted);
+
+								if (!isSessionValid)
+								{
+									context.Fail(
+										"User session is invalid or expired.");
+									return;
+								}
+							}
+							catch (OperationCanceledException)
+								when (context.HttpContext.RequestAborted.IsCancellationRequested)
+							{
+								throw;
+							}
+							catch (Exception exception)
+							{
+								logger.LogError(
+									exception,
+									"GlobalAuth session validation could not be completed.");
+
+								context.Fail(
+									"Session validation could not be completed.");
 								return;
 							}
 						}
-						catch (OperationCanceledException)
-							when (context.HttpContext.RequestAborted.IsCancellationRequested)
+						else if (principalType == "CLIENT")
 						{
-							throw;
-						}
-						catch (Exception exception)
-						{
-							logger.LogError(
-								exception,
-								"GlobalAuth session validation could not be completed.");
+							if (sessionClaims.Length != 0)
+							{
+								context.Fail(
+									"CLIENT tokens must not contain a session ID.");
+								return;
+							}
 
-							context.Fail("Session validation could not be completed.");
+							if (!string.Equals(
+								subjectId,
+								clientId,
+								StringComparison.Ordinal))
+							{
+								context.Fail("Invalid CLIENT identity claims.");
+								return;
+							}
 						}
 					}
 				};
+
 
 			});
 

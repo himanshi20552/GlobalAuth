@@ -1,0 +1,6 @@
+@GlobalAuth.Client.TestHost_HostAddress = http://localhost:5218
+
+GET {{GlobalAuth.Client.TestHost_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
