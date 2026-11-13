@@ -246,6 +246,49 @@ builder.Services.AddAuthorization(options =>
 		policy.RequireClaim(
 			GlobalAuthClaimTypes.Permission, "application.deactivate");
 	});
+
+	options.AddPolicy("ClientUpdate", policy =>
+	{
+		policy.RequireAuthenticatedUser();
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.PrincipalType, "USER");
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.ClientId, "AUTH_PLATFORM_ADMIN");
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.Permission, "client.update");
+	});
+
+	options.AddPolicy("ClientDeactivate", policy =>
+	{
+		policy.RequireAuthenticatedUser();
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.PrincipalType, "USER");
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.ClientId, "AUTH_PLATFORM_ADMIN");
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.Permission, "client.deactivate");
+	});
+
+	options.AddPolicy("ClientSecretRotate", policy =>
+	{
+		policy.RequireAuthenticatedUser();
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.PrincipalType, "USER");
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.ClientId, "AUTH_PLATFORM_ADMIN");
+
+		policy.RequireClaim(
+			GlobalAuthClaimTypes.Permission, "client.secret.rotate");
+	});
+
 });
 // Build application
 var app = builder.Build();

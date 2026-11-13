@@ -61,6 +61,39 @@ namespace GlobalAuth.Api.Repositories
 			await conn.ExecuteAsync(command);
 		}
 
+		public async Task<bool> RotateSecretAsync(
+			string clientId,
+			byte[] newSecretHash,
+			string updatedBy,
+			CancellationToken cancellationToken = default)
+		{
+			const string sql = """
+        UPDATE auth.ClientCredentials
+        SET ClientSecretHash = @NewSecretHash,
+            UpdatedAtUtc = SYSUTCDATETIME(),
+            UpdatedBy = @UpdatedBy
+        WHERE ClientID = @ClientID;
+        """;
+
+			await using var conn = _connFactory.CreateConnection();
+			await conn.OpenAsync(cancellationToken);
+
+			var command = new CommandDefinition(
+				sql,
+				new
+				{
+					ClientID = clientId,
+					NewSecretHash = newSecretHash,
+					UpdatedBy = updatedBy
+				},
+				cancellationToken: cancellationToken);
+
+			var rowsAffected = await conn.ExecuteAsync(command);
+
+			return rowsAffected > 0;
+		}
+
+
 
 
 	}
