@@ -20,9 +20,9 @@ public class AuthenticationService : IAuthenticationService
 	}
 
 	public async Task<UserAuthenticationResult?> AuthenticateUserAsync(
-		string userId,
-		string password,
-		CancellationToken cancellationToken = default)
+	string userId,
+	string password,
+	CancellationToken cancellationToken = default)
 	{
 		var user = await _userRepository
 			.GetByUserIdAsync(userId, cancellationToken);
@@ -33,26 +33,42 @@ public class AuthenticationService : IAuthenticationService
 		}
 
 		var passwordVerificationResult =
-			_passwordHashingService.VerifyPassword(user.PasswordHash, password);
+			_passwordHashingService.VerifyPassword(
+				user.PasswordHash,
+				password);
 
-		if (passwordVerificationResult == PasswordVerificationResult.Failed)
+		if (passwordVerificationResult ==
+			PasswordVerificationResult.Failed)
 		{
 			return null;
 		}
 
-		if (passwordVerificationResult == PasswordVerificationResult.SuccessRehashNeeded)
+		// Upgrade the password hash if required.
+		if (passwordVerificationResult ==
+			PasswordVerificationResult.SuccessRehashNeeded)
 		{
-			var newPasswordHash = _passwordHashingService.HashPassword(password);
+			var newPasswordHash =
+				_passwordHashingService.HashPassword(password);
 
-			await _userRepository.UpdatePasswordHashAsync(
+			var updated = await _userRepository.UpdatePasswordHashAsync(
 				user.UserId,
-				newPasswordHash,cancellationToken);
+				user.PasswordHash,
+				newPasswordHash,
+				cancellationToken);
+
+			if (!updated)
+			{
+				return null;
+			}
+
+			user.PasswordHash = newPasswordHash;
 		}
 
 		return new UserAuthenticationResult
 		{
 			UserId = user.UserId,
-			UserName = user.UserName
+			UserName = user.UserName,
+			PasswordHash = user.PasswordHash
 		};
 	}
 }

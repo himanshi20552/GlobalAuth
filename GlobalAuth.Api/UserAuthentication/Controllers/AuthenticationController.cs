@@ -112,7 +112,8 @@ public class AuthenticationController : ControllerBase
 				Permissions = authorization.Permissions,
 
 				// Audit metadata
-				IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+				IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+				VerifiedPasswordHash = result.PasswordHash,
 			},
 			cancellationToken);
 

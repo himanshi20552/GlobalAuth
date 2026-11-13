@@ -9,5 +9,8 @@
 		public List<string> Permissions { get; set; } = [];
 		// Audit metadata
 		public string? IpAddress { get; set; }
+		// Internal credential verification. Never sent to clients.
+		public string? VerifiedPasswordHash { get; set; }
+
 	}
 }
