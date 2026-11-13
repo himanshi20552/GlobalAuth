@@ -102,24 +102,29 @@ public class AuthenticationController : ControllerBase
 		}
 
 		// 5. Generate access and refresh tokens
-		var tokens = await _tokenIssuanceService.IssueAsync(
-			new TokenIssuanceRequest
-			{
-				PrincipalType = GlobalAuthPrincipalTypes.User,
-				SubjectId = result.UserId,
-				ApplicationId = request.ApplicationId,
-				Roles = authorization.Roles,
-				Permissions = authorization.Permissions,
+		RefreshTokenResponse tokens;
+		try
+		{
+			 tokens = await _tokenIssuanceService.IssueAsync(
+				new TokenIssuanceRequest
+				{
+					PrincipalType = GlobalAuthPrincipalTypes.User,
+					SubjectId = result.UserId,
+					ApplicationId = request.ApplicationId,
+					Roles = authorization.Roles,
+					Permissions = authorization.Permissions,
 
-				// Audit metadata
-				IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-				VerifiedPasswordHash = result.PasswordHash,
-			},
-			cancellationToken);
-
-		// 6. Return login response
-
-		return Ok(tokens);
+					// Audit metadata
+					IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+					VerifiedPasswordHash = result.PasswordHash,
+				},
+				cancellationToken);
+		}
+		catch (UnauthorizedAccessException)
+		{
+			return Unauthorized(
+				"Credentials have changed. Please log in again.");
+		}
 	}
 	[HttpPost("change-password")]
 	[Authorize]
