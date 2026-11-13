@@ -1,0 +1,74 @@
+﻿@page
+@model EmployeePortalDemo.Pages.Account.LoginModel
+
+@{
+    ViewData["Title"] = "Employee Login";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+
+            <h2 class="mb-4 text-center">Employee Portal Login</h2>
+
+            <form method="post">
+
+                <div id="login-error">
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="UserId" class="form-label">
+                        Employee ID
+                    </label>
+
+                    <input asp-for="UserId"
+                           class="form-control"
+                           placeholder="Enter your employee ID" />
+
+                    <span asp-validation-for="UserId"
+                          class="text-danger">
+                    </span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Password" class="form-label">
+                        Password
+                    </label>
+
+                    <input asp-for="Password"
+                           class="form-control"
+                           placeholder="Enter your password" />
+
+                    <span asp-validation-for="Password"
+                          class="text-danger">
+                    </span>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                    Login
+                </button>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.querySelectorAll("#UserId, #Password").forEach(input => {
+            input.addEventListener("input", () => {
+                const errorMessage = document.getElementById("login-error");
+
+                if (errorMessage) {
+                    errorMessage.style.display = "none";
+                }
+            });
+        });
+    </script>
+}
