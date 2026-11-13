@@ -15,7 +15,7 @@ public sealed class ClientRefreshTokenRepository
 		_connFactory = connFactory;
 	}
 
-	public async Task<bool> CreateAsync(
+	public async Task<int> CreateAsync(
 		Guid clientRefreshTokenId,
 		string clientId,
 		Guid familyId,
@@ -43,7 +43,7 @@ public sealed class ClientRefreshTokenRepository
 
 		var resultCode = await conn.ExecuteScalarAsync<int>(command);
 
-		return resultCode == 0;
+		return resultCode;
 	}
 
 	public async Task<int> RotateAsync(byte[] presentedTokenHash,Guid newClientRefreshTokenId,

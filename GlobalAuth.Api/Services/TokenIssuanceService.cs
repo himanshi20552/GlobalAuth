@@ -179,12 +179,23 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 			request.VerifiedClientSecretHash!,
 			cancellationToken);
 
-		if (!stored)
-		{
-			throw new InvalidOperationException(
-				"Client refresh token could not be stored. The client may be inactive.");
-		}
+		var resultCode = await _clientRefreshTokenRepository.CreateAsync(clientRefreshTokenId,request.SubjectId,familyId,
+			refreshToken.TokenHash, refreshTokenExpiresAtUtc,request.VerifiedClientSecretHash!,cancellationToken);
 
+		switch (resultCode)
+		{
+			case 0:
+				break;
+
+			case 3:
+			case 4:
+				throw new UnauthorizedAccessException(
+					"Client credentials are no longer valid. Please authenticate again.");
+
+			default:
+				throw new InvalidOperationException(
+					"Unexpected client refresh-token creation result.");
+		}
 		try
 		{
 			await _auditRepository.CreateAsync(

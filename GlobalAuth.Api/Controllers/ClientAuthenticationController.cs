@@ -17,19 +17,36 @@ namespace GlobalAuth.Api.Controllers
 		}
 		[AllowAnonymous]
 		[HttpPost("token")]
-		public async Task<IActionResult> GenerateToken([FromBody] ClientTokenRequest request, CancellationToken cancellationToken) {
+		public async Task<IActionResult> GenerateToken([FromBody] ClientTokenRequest request, CancellationToken cancellationToken)
+		{
 			var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-			var result = await _clientAuthenticationService.AuthenticateAndIssueTokensAsync(
-				request.ClientId, request.ClientSecret, IpAddress: ipAddress, cancellationToken: cancellationToken);
-			if (result is null)
+			try
+			{
+				var result = await _clientAuthenticationService
+					.AuthenticateAndIssueTokensAsync(
+						request.ClientId,
+						request.ClientSecret,
+						IpAddress: ipAddress,
+						cancellationToken: cancellationToken);
+
+				if (result is null)
+				{
+					return Unauthorized(new
+					{
+						message = "Invalid Client Credentials"
+					});
+				}
+
+				return Ok(result);
+			}
+			catch (UnauthorizedAccessException)
 			{
 				return Unauthorized(new
 				{
 					message = "Invalid Client Credentials"
 				});
 			}
-			return Ok(result);
-		}
 
+		}
 	}
 }
