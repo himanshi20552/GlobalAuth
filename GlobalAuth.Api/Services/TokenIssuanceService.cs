@@ -170,15 +170,6 @@ public sealed class TokenIssuanceService : ITokenIssuanceService
 		var refreshTokenExpiresAtUtc =
 			nowUtc.AddDays(_refreshTokenOptions.LifetimeDays);
 
-		var stored = await _clientRefreshTokenRepository.CreateAsync(
-			clientRefreshTokenId,
-			request.SubjectId,
-			familyId,
-			refreshToken.TokenHash,
-			refreshTokenExpiresAtUtc,
-			request.VerifiedClientSecretHash!,
-			cancellationToken);
-
 		var resultCode = await _clientRefreshTokenRepository.CreateAsync(clientRefreshTokenId,request.SubjectId,familyId,
 			refreshToken.TokenHash, refreshTokenExpiresAtUtc,request.VerifiedClientSecretHash!,cancellationToken);
 
