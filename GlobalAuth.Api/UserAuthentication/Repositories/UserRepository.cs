@@ -35,29 +35,37 @@ namespace ApplicationAuthentication.Repositories
 			return await connection.QueryFirstOrDefaultAsync<User>(command);
 		}
 
-		public async Task UpdatePasswordHashAsync(
-			string userId,
-			string newPasswordHash,
-			CancellationToken cancellationToken = default)
+		public async Task<bool> UpdatePasswordHashAsync(
+	string userId,
+	string currentPasswordHash,
+	string newPasswordHash,
+	CancellationToken cancellationToken = default)
 		{
 			const string sql = """
-                UPDATE dbo.Users
-                SET PasswordHash = @NewPasswordHash
-                WHERE UserId = @UserId;
-                """;
+        UPDATE dbo.Users
+        SET PasswordHash = @NewPasswordHash
+        WHERE UserId = @UserId
+          AND IsActive = 1
+          AND IsBlocked = 0
+          AND CONVERT(VARBINARY(MAX), PasswordHash) =
+              CONVERT(VARBINARY(MAX), @CurrentPasswordHash);
+        """;
 
 			var command = new CommandDefinition(
 				commandText: sql,
 				parameters: new
 				{
 					UserId = userId,
+					CurrentPasswordHash = currentPasswordHash,
 					NewPasswordHash = newPasswordHash
 				},
 				cancellationToken: cancellationToken);
 
 			using var connection = _databaseConnection.CreateConnection();
 
-			await connection.ExecuteAsync(command);
+			var affectedRows = await connection.ExecuteAsync(command);
+
+			return affectedRows == 1;
 		}
 
 		public async Task<bool> ChangePasswordAndRevokeSessionsAsync(string userId,string applicationId,Guid currentSessionId,
