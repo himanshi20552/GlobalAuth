@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using EmployeePortalDemo.Models.Responses;
 using System.Text.Json;
 
-namespace EmployeePortalDemo.Pages.Dashboard
+namespace EmployeePortalDemo.Pages
 {
 	public class IndexModel : PageModel
 	{

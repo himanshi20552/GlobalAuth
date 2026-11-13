@@ -1,5 +1,5 @@
 ﻿@page
-@model EmployeePortalDemo.Pages.Dashboard.IndexModel
+@model EmployeePortalDemo.Pages.IndexModel
 
 @{
     ViewData["Title"] = "Dashboard";
@@ -8,53 +8,24 @@
 <div class="container mt-4">
 
     <h2>Employee Dashboard</h2>
-    <p class="text-muted">Welcome, @Model.Employee!.UserName</p>
+
+    <p class="text-success">
+        Authentication successful!
+    </p>
 
     <hr />
 
-    <h4>Employee Information</h4>
+    <h4>Authentication Information</h4>
 
     <table class="table table-bordered">
         <tr>
-            <th>Employee ID</th>
-            <td>@Model.Employee.UserId</td>
+            <th>Authentication Status</th>
+            <td>Authenticated</td>
         </tr>
         <tr>
-            <th>Employee Name</th>
-            <td>@Model.Employee.UserName</td>
+            <th>Access Token Expiry (UTC)</th>
+            <td>@Model.Employee!.ExpiresAtUtc.ToString("dd-MMM-yyyy HH:mm:ss")</td>
         </tr>
     </table>
-
-    <h4 class="mt-4">Assigned Groups</h4>
-
-    @if (Model.Employee.Groups.Count > 0)
-    {
-        <ul>
-            @foreach (var group in Model.Employee.Groups)
-            {
-                <li>@group</li>
-            }
-        </ul>
-    }
-    else
-    {
-        <p class="text-muted">No groups assigned.</p>
-    }
-
-    <h4 class="mt-4">Assigned Permissions</h4>
-
-    @if (Model.Employee.Permissions.Count > 0)
-    {
-        <ul>
-            @foreach (var permission in Model.Employee.Permissions)
-            {
-                <li>@permission</li>
-            }
-        </ul>
-    }
-    else
-    {
-        <p class="text-muted">No permissions assigned.</p>
-    }
 
 </div>

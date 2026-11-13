@@ -1,0 +1,33 @@
+@page
+@model EmployeePortalDemo.Pages.Dashboard.IndexModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="container mt-4">
+
+    <h2>Employee Dashboard</h2>
+
+    <p class="text-success">
+        Authentication successful!
+    </p>
+
+    <hr />
+
+    <h4>Authentication Information</h4>
+
+    <table class="table table-bordered">
+        <tr>
+            <th>Authentication Status</th>
+            <td>Authenticated</td>
+        </tr>
+        <tr>
+            <th>Access Token Expiry (UTC)</th>
+            <td>
+                @Model.Employee!.ExpiresAtUtc.ToString("dd-MMM-yyyy HH:mm:ss")
+            </td>
+        </tr>
+    </table>
+
+</div>

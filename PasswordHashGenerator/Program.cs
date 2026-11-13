@@ -2,7 +2,7 @@
 
 var hasher = new PasswordHasher<TestUser>();
 
-string password = "TestPassword@123";
+string password = "Test@123";
 
 string hash = hasher.HashPassword(
 	new TestUser(),
